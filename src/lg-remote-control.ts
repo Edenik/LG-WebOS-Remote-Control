@@ -105,10 +105,10 @@ class LgRemoteControl extends LitElement {
 
   render() {
     const stateObj = this.hass.states[this.config.entity];
-    const debuggerEnabled = this.config.debugger_config;
+    const debuggerEnabled = this.config.debug;
 
     if (debuggerEnabled) {
-      console.info({ hass: this.hass, config: this.config, state: stateObj });
+      console.info({ hass: this.hass, config: this.config, state: stateObj, fn: "render", file: "lg-remote-control" })
     }
 
     return html`
@@ -1045,8 +1045,8 @@ class LgRemoteControl extends LitElement {
   }
 
   _debugLog(domain: string, service: string, serviceData: Record<string, any>) {
-    if (this.config.debugger_config) {
-      console.log(`called _select_source fn data ${JSON.stringify({ domain, service, serviceData })},`)
+    if (this.config.debug) {
+      console.log({ domain, service, serviceData, fn: "debugLog", file: "lg-remote-control" })
     }
   }
 

@@ -21,3 +21,24 @@ export interface EntityRegistryDisplayEntry {
 export interface WindowWithCards extends Window {
   customCards: unknown[];
 }
+
+
+export interface Button {
+  tooltip?: string;
+  color?: string;
+  icon?: string;
+  img?: string;
+  svg?: string;
+  text?: string;
+  text_color?: string;
+  script_id?: string;
+  scene_id?: string;
+  data?: Record<string, any>;
+};
+
+
+export interface SelectedButton {
+  type: "sources" | "scripts" | "shortcuts",
+  index: number;
+  button: Button;
+}

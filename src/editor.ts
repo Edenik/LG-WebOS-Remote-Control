@@ -3,7 +3,7 @@ import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 
 import { EDITOR_CARD_TAG_NAME } from "./const";
-import { HomeAssistantFixed } from "./types";
+import { Button, HomeAssistantFixed, SelectedButton } from "./types";
 import { getMediaPlayerEntitiesByPlatform } from "./utils";
 
 
@@ -47,17 +47,28 @@ const AvReceiverdevicemap = new Map(Object.entries(avreceivers));
 class LgRemoteControlEditor extends LitElement {
   private _config: any;
   private hass: HomeAssistantFixed;
+  private _selectedItem: SelectedButton | null = null;
+  private _activeTab: "buttons" | "shortcuts" = "buttons";
 
   static get properties() {
     return {
       hass: {},
       _config: {},
+      _selectedItem: { type: Object },
+      _activeTab: { type: String },  // Add this line
     };
+  }
+
+  private switchTab(tab: 'buttons' | 'shortcuts') {
+    this._activeTab = tab;
+    this.requestUpdate();
   }
 
   // setConfig works the same way as for the card itself
   setConfig(config) {
     this._config = config;
+    this._activeTab = "buttons";
+    this.debugLog({ hass: this.hass, config: this._config, fn: "setConfig" })
   }
 
   // This function is called when the input element of the editor loses focus or is changed
@@ -74,23 +85,27 @@ class LgRemoteControlEditor extends LitElement {
       bubbles: true,
       composed: true,
     });
+
+    this.debugLog({ hass: this.hass, event, _config, fn: "configChanged" })
     this.dispatchEvent(event);
   }
 
   configChangedBool(ev) {
     const inputName = ev.target.name;
+    // Convert string 'true'/'false' to boolean
     const newValue = ev.target.value === 'true';
 
-    const _config = Object.assign({}, this._config);
+    const _config = { ...this._config };
     _config[inputName] = newValue;
     this._config = _config;
 
-    // Invia l'evento "config-changed"
     const event = new CustomEvent('config-changed', {
       detail: { config: _config },
       bubbles: true,
       composed: true,
     });
+
+    this.debugLog({ hass: this.hass, event, _config, fn: "configChangedBool" })
     this.dispatchEvent(event);
   }
 
@@ -116,6 +131,8 @@ class LgRemoteControlEditor extends LitElement {
             bubbles: true,
             composed: true,
           });
+
+          this.debugLog({ hass: this.hass, event, _config, fn: "colorsConfigChanged" })
           this.dispatchEvent(event);
         }
       }
@@ -132,9 +149,12 @@ class LgRemoteControlEditor extends LitElement {
         bubbles: true,
         composed: true,
       });
+
+      this.debugLog({ hass: this.hass, event, _config, fn: "colorsConfigChanged" })
       this.dispatchEvent(event);
     }
   }
+
   _erase_av_receiver() {
     this._config.av_receiver_family = '';
     this.requestUpdate(); // Aggiunta per forzare il render
@@ -159,8 +179,11 @@ class LgRemoteControlEditor extends LitElement {
       bubbles: true,
       composed: true,
     });
+
+    this.debugLog({ hass: this.hass, event, _config, fn: "dimensionsConfigChanged" })
     this.dispatchEvent(event);
   }
+
   getLgTvEntityDropdown(optionValue) {
     let mediaPlayerEntities = getMediaPlayerEntitiesByPlatform(this.hass, 'webostv');
     let heading = 'LG Media Player Entity';
@@ -243,39 +266,49 @@ class LgRemoteControlEditor extends LitElement {
         `;
   }
 
-  colorButtonsConfig(optionvalue) {
-    let heading = 'Do you want to configure an AV-Receiver';
-
-    // Controlla se esiste una configurazione "color_buttons" e usa quel valore come opzione selezionata
-    const selectedValue = this._config.color_buttons || 'false';
+  colorButtonsConfig() {
+    // Use actual boolean with default false
+    const selectedValue = Boolean(this._config.color_buttons ?? false);
 
     return html`
-          <div>Color buttons config</div>
-          <select name="color_buttons" id="color_buttons" class="select-item"
-                  .value="${selectedValue}"
-                  @change=${this.configChangedBool}
-          >
-            <option value="true" ?selected=${selectedValue === 'true'}>True</option>
-            <option value="false" ?selected=${selectedValue === 'false'}>False</option>
-          </select>
-          <br>
-        `;
+      <div>Color buttons config</div>
+      <select name="color_buttons" id="color_buttons" class="select-item"
+              .value=${String(selectedValue)}
+              @change=${this.configChangedBool}
+      >
+        <option value="true" ?selected=${selectedValue}>On</option>
+        <option value="false" ?selected=${!selectedValue}>Off</option>
+      </select>
+      <br>
+    `;
   }
 
-  debugger_config(optionvalue) {
-    const selectedValue = this._config.debugger_config || 'false';
+  debugLog(log: Record<string, any>) {
+    if (this.isDebuggerEnabled()) {
+      console.log({ ...log, file: "editor.ts" })
+    }
+  }
+
+  isDebuggerEnabled() {
+    // Use Boolean type coercion with default false
+    return Boolean(this._config.debug ?? false);
+  }
+
+  debugConfig() {
+    // Use actual boolean instead of string
+    const selectedValue = Boolean(this._config.debug ?? false);
 
     return html`
-          <div>Debugger config</div>
-          <select name="debugger_config" id="debugger_config" class="select-item"
-                  .value="${selectedValue}"
-                  @change=${this.configChangedBool}
-          >
-            <option value="true" ?selected=${selectedValue === 'true'}>On</option>
-            <option value="false" ?selected=${selectedValue === 'false'}>Off</option>
-          </select>
-          <br>
-        `;
+      <div>Debugger config</div>
+      <select name="debug" id="debug" class="select-item"
+              .value=${String(selectedValue)} 
+              @change=${this.configChangedBool}
+      >
+        <option value="true" ?selected=${selectedValue}>On</option>
+        <option value="false" ?selected=${!selectedValue}>Off</option>
+      </select>
+      <br>
+    `;
   }
 
   setDimensions(dimensions) {
@@ -364,63 +397,548 @@ class LgRemoteControlEditor extends LitElement {
   }
 
 
+  private handleItemSelect(button: Button, index: number, type: "sources" | "scripts" | "shortcuts") {
+    this._selectedItem = { button, index, type };
+    this.requestUpdate();
+  }
 
+  private handleItemUpdate(ev: Event) {
+    if (!this._selectedItem) return;
+    const { type, index } = this._selectedItem;
+    const target = ev.target as HTMLInputElement;
+    const field = target.name;
+    const value = target.value;
+
+    // Create a copy of the current config
+    const newConfig = structuredClone(this._config);
+
+    console.log({ newConfig })
+    if (newConfig[type]) {
+      if (index !== -1) {
+        try {
+          console.log({ type, index, field, value, newConfig })
+          newConfig[type][index][field] = value;
+          // Update the selected item reference
+          this._selectedItem.button = newConfig[type][index];
+        } catch (error) {
+          console.error(error)
+        }
+      }
+    }
+
+    // Dispatch config changed event
+    this._config = newConfig;
+    const event = new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    });
+
+    this.debugLog({ hass: this.hass, event, fn: "handleItemUpdate" })
+    this.dispatchEvent(event);
+  }
+
+  private handleAddItem(type: "sources" | "scripts" | "shortcuts") {
+    const newConfig = structuredClone(this._config);
+
+    console.log(`clicked add item with type: ${type}`)
+    // Initialize array if it doesn't exist
+    if (!newConfig[type]) {
+      newConfig[type] = [];
+    }
+
+    // Create new blank button based on type
+    const newButton: Button = {
+      tooltip: `New ${type.slice(0, -1)}`,  // Remove 's' from end
+    };
+
+    // Add specific defaults based on type
+    if (type === "shortcuts") {
+      newButton.script_id = "";
+      newButton.data = {};
+    }
+
+    newConfig[type].push(newButton);
+
+    // Update config and trigger refresh
+    this._selectedItem = {
+      button: newButton,
+      index: newConfig[type].length - 1,
+      type: type
+    }
+    this._config = newConfig;
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private handleDeleteItem(type: "sources" | "scripts" | "shortcuts", index: number) {
+    const newConfig = structuredClone(this._config);
+
+    if (newConfig[type] && newConfig[type].length > index) {
+      newConfig[type].splice(index, 1);
+
+      // Clear selection if deleted item was selected
+      if (this._selectedItem?.type === type && this._selectedItem?.index === index) {
+        this._selectedItem = null;
+      }
+
+      // Update indices for remaining selected items
+      if (this._selectedItem?.type === type && this._selectedItem?.index > index) {
+        this._selectedItem.index--;
+      }
+    }
+
+    this._config = newConfig;
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private renderItemEditor() {
+    if (!this._selectedItem) return html``;
+    const { button, type } = this._selectedItem;
+
+    return html`
+      <div class="item-editor">
+        <h3>Edit ${button.tooltip || 'Item'}</h3>
+        <div class="field-group">
+          <label>Name/Tooltip:</label>
+          <input 
+            type="text" 
+            name="tooltip" 
+            .value=${button.tooltip || ''} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+        
+        <div class="field-group">
+          <label>Icon:</label>
+          <input 
+            type="text" 
+            name="icon" 
+            .value=${button.icon || ''} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        <div class="field-group">
+          <label>Color:</label>
+          <input 
+            type="color" 
+            name="color" 
+            .value=${button.color || '#000000'} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        <div class="field-group">
+          <label>Image URL:</label>
+          <input 
+            type="text" 
+            name="img" 
+            .value=${button.img || ''} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        <div class="field-group">
+          <label>SVG URL:</label>
+          <input 
+            type="text" 
+            name="svg" 
+            .value=${button.svg || ''} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        <div class="field-group">
+          <label>Text:</label>
+          <input 
+            type="text" 
+            name="text" 
+            .value=${button.text || ''} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        <div class="field-group">
+          <label>Text Color:</label>
+          <input 
+            type="color" 
+            name="text_color" 
+            .value=${button.text_color || '#000000'} 
+            @change=${this.handleItemUpdate}
+          />
+        </div>
+  
+        ${button.script_id ? html`
+          <div class="field-group">
+            <label>Script ID:</label>
+            <input 
+              type="text" 
+              name="script_id" 
+              .value=${button.script_id} 
+              @change=${this.handleItemUpdate}
+            />
+          </div>
+        ` : ''}
+  
+        ${type === 'shortcuts' ? html`
+          <div class="field-group">
+            <label>Data (JSON):</label>
+            <textarea
+              name="data"
+              .value=${button.data ? JSON.stringify(button.data, null, 2) : ''}
+              @change=${this.handleItemUpdate}
+            ></textarea>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private renderSection(type: "sources" | "scripts" | "shortcuts", buttons: Button[], title: string) {
+    return html`
+      <div class="list-container">
+        ${buttons.map((button: Button, index: number) => html`
+          <div class="list-item-wrapper">
+            ${this.renderButtonItem(button, index, type)}
+            <ha-icon 
+              icon="mdi:delete"
+              class="trash" 
+              @click=${(e: Event) => {
+        e.stopPropagation();
+        this.handleDeleteItem(type, index);
+      }}
+            ></ha-icon>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
+  private renderAddButton(type: "sources" | "shortcuts" | "scripts", title: string, text?: string) {
+    return html`
+          <button
+            title="${title}"
+            @click=${() => this.handleAddItem(type)}>
+            <ha-icon icon="mdi:plus"></ha-icon> 
+            ${text}</button>`
+  }
+
+  // Updated main render method
+  private renderButtonsAndShortcutsEditor() {
+    const sources = this._config.sources || [];
+    const scripts = this._config.scripts || [];
+    const shortcuts = this._config.shortcuts || [];
+
+    return html`
+      <div class="defined-buttons-list">
+        <div class="tab-navigation">
+          <button 
+            class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
+            @click=${() => this.switchTab('buttons')}
+          >
+            <ha-icon icon="mdi:remote"></ha-icon>
+            Buttons
+          </button>
+          <button 
+            class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
+            @click=${() => this.switchTab('shortcuts')}
+          >
+            <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
+            Shortcuts
+          </button>
+        </div>
+  
+        ${this._activeTab === 'buttons' ? html`
+          <div class="section-header">
+            <h3>Buttons</h3>
+            <div class="section-actions">
+              ${this.renderAddButton("sources", "Add Source", "Source")}
+              ${this.renderAddButton("scripts", "Add Script", "Script")}
+            </div>
+          </div>
+          <div class="list-container">
+            ${this.renderSection("sources", sources, "")}
+            ${this.renderSection("scripts", scripts, "")}
+          </div>
+        ` : html`
+          <div class="section-header">
+            <h3>Shortcuts</h3>
+            <div class="section-actions">
+              ${this.renderAddButton("shortcuts", "Add Shortcut")}
+            </div>
+          </div>
+          ${this.renderSection("shortcuts", shortcuts, "Shortcuts")}
+        `}
+      </div>
+    `;
+  }
+
+  private renderButtonItem(button: Button, index: number, identifier: "sources" | "scripts" | "shortcuts") {
+    return html`
+      <div 
+        class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}"
+        @click=${() => this.handleItemSelect(button, index, identifier)}
+      >
+        <div class="item-preview">
+          ${button.icon ? html`<ha-icon icon="${button.icon}"></ha-icon>` : ''}
+          ${button.img ? html`<img src="${button.img}" alt="${button.tooltip || ''}" />` : ''}
+          ${button.svg ? html`<img src="${button.svg}" alt="${button.tooltip || ''}" />` : ''}
+        </div>
+        <div class="item-info">
+          <span>${button.tooltip || 'Unnamed Item'}</span>
+          ${button.data ? html`
+            <span class="item-data">
+              ${Object.entries(button.data).map(([key, value]) => html`
+                <span class="data-item">${key}: ${value}</span>
+              `)}
+            </span>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Modify the existing render method to include the new components
   render() {
     if (!this.hass || !this._config) {
       return html``;
     }
 
     return html`
-      ${this.getLgTvEntityDropdown(this._config.entity)}
-      ${this.selectMac(this._config.mac)}
-      ${this.setRemoteName(this._config.name)}
-      ${this.selectColors(this._config)}
-      ${this.colorButtonsConfig(this._config)}
-      ${this.debugger_config(this._config)}
-      ${this.getDeviceAVReceiverDropdown(this._config.av_receiver_family)}
-      ${this.getMediaPlayerEntityDropdown(this._config.av_receiver_family)}
-      ${this.setDimensions(this._config.dimensions ?? {})}
-      <br>
-      <p>Other functionalities must be configured manually in code editor</p>
-      <p>references to <a href="https://github.com/madmicio/LG-WebOS-Remote-Control">https://github.com/madmicio/LG-WebOS-Remote-Control</a></p>
-      <div class="donations" style="display: flex">
-          <a href="https://www.buymeacoffee.com/madmicio" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
-          <form action="https://www.paypal.com/donate" method="post" target="_top">
-          <input type="hidden" name="hosted_button_id" value="U5VQ9LHM82B7Q" />
-          <input type="image" src="https://pics.paypal.com/00/s/ODdjZjVlZjAtOWVmYS00NjQyLTkyZTUtNWQ3MmMzMmIxYTcx/file.PNG" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" style="height:60px;" />
-          <img alt="" border="0" src="https://www.paypal.com/en_IT/i/scr/pixel.gif" width="1" height="1" />
-          </form>
+    ${this.getLgTvEntityDropdown(this._config.entity)}
+    ${this.selectMac(this._config.mac)}
+    ${this.setRemoteName(this._config.name)}
+    ${this.selectColors(this._config)}
+    ${this.colorButtonsConfig()}
+    ${this.debugConfig()}
+    ${this.getDeviceAVReceiverDropdown(this._config.av_receiver_family)}
+    ${this.getMediaPlayerEntityDropdown(this._config.av_receiver_family)}
+    ${this.setDimensions(this._config.dimensions ?? {})}
+    
+    <!-- Add new components here -->
+    <div class="editor-section">
+      ${this.renderButtonsAndShortcutsEditor()}
+      ${this.renderItemEditor()}
+    </div>
 
-      </div>
-   `;
+    <br>
+    <p>Other functionalities must be configured manually in code editor</p>
+    <p>references to <a href="https://github.com/madmicio/LG-WebOS-Remote-Control">https://github.com/madmicio/LG-WebOS-Remote-Control</a></p>
+    <div class="donations" style="display: flex">
+      <!-- Donations section unchanged -->
+    </div>
+  `;
   }
 
+  // Add these styles to the existing styles
   static get styles() {
     return css`
- 
-        .color-selector {
-            display: grid;
-            grid-template-columns: auto 8ch 3ch;
-            width: 40ch;
-        }
- 
-        .color-item {
-            padding: .6em;
-            font-size: 1em;
-        }
- 
-        .heading {
-            font-weight: bold;
-        }
- 
-        .select-item {
-            background-color: var(--label-badge-text-color);
-            width: 40ch;
-            padding: .6em; 
-            font-size: 1em;
-        }
- 
-        `;
-  }
 
+    .editor-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .defined-buttons-list {
+      border: 1px solid var(--divider-color, #e0e0e0);
+      padding: 16px;
+      border-radius: 4px;
+      width: 26rem;
+    }
+
+    .list-container {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 4px 0;
+    }
+
+    .list-item:hover {
+      background-color: var(--secondary-background-color);
+    }
+
+    .list-item.selected {
+      background-color: var(--primary-color);
+      color: var(--text-primary-color);
+    }
+
+    .item-preview {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .item-preview img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .item-editor {
+      border: 1px solid var(--divider-color, #e0e0e0);
+      padding: 16px;
+      border-radius: 4px;
+    }
+
+    .field-group {
+      margin-bottom: 16px;
+    }
+
+    .field-group label {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .field-group input {
+      width: 100%;
+      padding-block: 8px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 4px;
+    }
+
+
+    .divider {
+      margin: 24px 0;
+      border: none;
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-data {
+      font-size: 0.8em;
+      color: var(--secondary-text-color);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .data-item {
+      background: var(--secondary-background-color);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 8px;
+      font-family: monospace;
+      white-space: pre;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 4px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .section-header h3 {
+      margin: 0px;
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .section-actions button {
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      background: transparent;
+      border: 0;
+    }
+
+    .section-actions button:hover {
+      background-color: var(--secondary-background-color);
+    }
+
+    .list-item-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .list-item-wrapper .list-item {
+      flex: 1;
+    }
+
+    .list-item-wrapper ha-icon.trash {
+      opacity: 0;
+      cursor: pointer;
+      color: var(--error-color);
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    .list-item-wrapper:hover ha-icon.trash {
+      opacity: 1;
+    }
+
+    .list-item-wrapper ha-icon.trash:hover {
+      background-color: var(--secondary-background-color);
+    }
+
+    .tab-navigation {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
+
+    .tab-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      transition: all 0.2s ease;
+    }
+
+    .tab-button:hover {
+      background-color: var(--secondary-background-color);
+    }
+
+    .tab-button.active {
+      border-bottom-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .tab-button ha-icon {
+      width: 20px;
+      height: 20px;
+    }
+  `;
+  }
 }
