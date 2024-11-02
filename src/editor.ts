@@ -1,9 +1,9 @@
 // Create and register the card editor
+import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
-import { html, css, LitElement } from "lit";
 
-import { HomeAssistantFixed } from "./types";
 import { EDITOR_CARD_TAG_NAME } from "./const";
+import { HomeAssistantFixed } from "./types";
 import { getMediaPlayerEntitiesByPlatform } from "./utils";
 
 
@@ -161,12 +161,12 @@ class LgRemoteControlEditor extends LitElement {
     });
     this.dispatchEvent(event);
   }
-  getLgTvEntityDropdown(optionValue){
+  getLgTvEntityDropdown(optionValue) {
     let mediaPlayerEntities = getMediaPlayerEntitiesByPlatform(this.hass, 'webostv');
     let heading = 'LG Media Player Entity';
     let blankEntity = html``;
-    if(this._config.tventity == '' || !(mediaPlayerEntities).includes(optionValue)) {
-      blankEntity = html `<option value="" selected> - - - - </option> `;
+    if (this._config.tventity == '' || !(mediaPlayerEntities).includes(optionValue)) {
+      blankEntity = html`<option value="" selected> - - - - </option> `;
     }
     return html`
             ${heading}:<br>
@@ -196,7 +196,7 @@ class LgRemoteControlEditor extends LitElement {
             <br><br>
         `;
   }
-  
+
   selectMac(macValue) {
     macValue = macValue ?? '00:11:22:33:44:55';
     let heading = 'MAC Address:';
@@ -262,15 +262,31 @@ class LgRemoteControlEditor extends LitElement {
         `;
   }
 
+  debugger_config(optionvalue) {
+    const selectedValue = this._config.debugger_config || 'false';
+
+    return html`
+          <div>Debugger config</div>
+          <select name="debugger_config" id="debugger_config" class="select-item"
+                  .value="${selectedValue}"
+                  @change=${this.configChangedBool}
+          >
+            <option value="true" ?selected=${selectedValue === 'true'}>On</option>
+            <option value="false" ?selected=${selectedValue === 'false'}>Off</option>
+          </select>
+          <br>
+        `;
+  }
+
   setDimensions(dimensions) {
     let heading = 'Dimensions';
 
-    const borderWidth = parseFloat(dimensions.border_width??"1");
+    const borderWidth = parseFloat(dimensions.border_width ?? "1");
 
     return html`
           <div class="heading">${heading}:</div>
           <br>
-          <label for="scale">Card Scale: ${dimensions.scale??1}</label><br>
+          <label for="scale">Card Scale: ${dimensions.scale ?? 1}</label><br>
           <input type="range" min="0.5" max="1.5" step="0.01" .value="${dimensions && dimensions.scale}" id="scale" name="scale" @input=${this.dimensionsConfigChanged} style="width: 40ch;">
           </input>
           <br>
@@ -286,8 +302,8 @@ class LgRemoteControlEditor extends LitElement {
   getDeviceAVReceiverDropdown(optionvalue) {
     const familykeys = [...AvReceiverdevicemap.keys()];
     const blankEntity = (!this._config.av_receiver_family || this._config.av_receiver_family === '')
-    ? html`<option value="" selected> - - - - </option>`
-    : '';
+      ? html`<option value="" selected> - - - - </option>`
+      : '';
     return html`
         <div>AV-Receiver config option:</div>
         <div style="display: flex;width: 40ch;align-items: center;">
@@ -301,12 +317,13 @@ class LgRemoteControlEditor extends LitElement {
             @change=${this.configChanged}>
             ${blankEntity}
             ${familykeys.map((family) => {
-              const receiverData = AvReceiverdevicemap.get(family);
-              return html`
+      const receiverData = AvReceiverdevicemap.get(family);
+      return html`
                 <option value="${family}" ?selected=${optionvalue === family}>
                   ${receiverData.friendlyName}
                 </option>
-              `;})}
+              `;
+    })}
           </select>
           ${this._config.av_receiver_family && this._config.av_receiver_family != '' ? html`
           <ha-icon 
@@ -315,7 +332,7 @@ class LgRemoteControlEditor extends LitElement {
             @click=${this._erase_av_receiver}
             @mouseover=${() => this.focus()}
           ></ha-icon>`
-          : ''}
+        : ''}
         </div>
         <br />
     `;
@@ -359,9 +376,10 @@ class LgRemoteControlEditor extends LitElement {
       ${this.setRemoteName(this._config.name)}
       ${this.selectColors(this._config)}
       ${this.colorButtonsConfig(this._config)}
+      ${this.debugger_config(this._config)}
       ${this.getDeviceAVReceiverDropdown(this._config.av_receiver_family)}
       ${this.getMediaPlayerEntityDropdown(this._config.av_receiver_family)}
-      ${this.setDimensions(this._config.dimensions??{})}
+      ${this.setDimensions(this._config.dimensions ?? {})}
       <br>
       <p>Other functionalities must be configured manually in code editor</p>
       <p>references to <a href="https://github.com/madmicio/LG-WebOS-Remote-Control">https://github.com/madmicio/LG-WebOS-Remote-Control</a></p>
