@@ -49,13 +49,17 @@ class LgRemoteControlEditor extends LitElement {
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
   private _activeTab: "buttons" | "shortcuts" = "buttons";
+  private _isAddingNew: boolean = false;
+  private _isFormDirty: boolean = false;
 
   static get properties() {
     return {
       hass: {},
       _config: {},
       _selectedItem: { type: Object },
-      _activeTab: { type: String },  // Add this line
+      _activeTab: { type: String },
+      _isAddingNew: { type: Boolean },
+      _isFormDirty: { type: Boolean },
     };
   }
 
@@ -67,7 +71,7 @@ class LgRemoteControlEditor extends LitElement {
   // setConfig works the same way as for the card itself
   setConfig(config) {
     this._config = config;
-    this._activeTab = "buttons";
+    // this._activeTab = "buttons";
     this.debugLog({ hass: this.hass, config: this._config, fn: "setConfig" })
   }
 
@@ -403,31 +407,30 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   private handleItemUpdate(ev: Event) {
+    this._isFormDirty = true;
     if (!this._selectedItem) return;
     const { type, index } = this._selectedItem;
     const target = ev.target as HTMLInputElement;
     const field = target.name;
     const value = target.value;
 
-    // Create a copy of the current config
     const newConfig = structuredClone(this._config);
 
-    console.log({ newConfig })
-    if (newConfig[type]) {
-      if (index !== -1) {
-        try {
-          console.log({ type, index, field, value, newConfig })
-          newConfig[type][index][field] = value;
-          // Update the selected item reference
-          this._selectedItem.button = newConfig[type][index];
-        } catch (error) {
-          console.error(error)
-        }
+    if (newConfig[type] && index !== -1) {
+      try {
+        newConfig[type][index][field] = value;
+        this._selectedItem = {
+          ...this._selectedItem,
+          button: newConfig[type][index]
+        };
+      } catch (error) {
+        console.error(error)
       }
     }
 
-    // Dispatch config changed event
     this._config = newConfig;
+    this.requestUpdate();
+
     const event = new CustomEvent("config-changed", {
       detail: { config: newConfig },
       bubbles: true,
@@ -441,38 +444,74 @@ class LgRemoteControlEditor extends LitElement {
   private handleAddItem(type: "sources" | "scripts" | "shortcuts") {
     const newConfig = structuredClone(this._config);
 
-    console.log(`clicked add item with type: ${type}`)
-    // Initialize array if it doesn't exist
     if (!newConfig[type]) {
       newConfig[type] = [];
     }
 
-    // Create new blank button based on type
     const newButton: Button = {
-      tooltip: `New ${type.slice(0, -1)}`,  // Remove 's' from end
+      tooltip: `New ${type.slice(0, -1)}`,
     };
 
-    // Add specific defaults based on type
     if (type === "shortcuts") {
       newButton.script_id = "";
       newButton.data = {};
+      // Ensure shortcuts tab stays active when adding new shortcut
+      this._activeTab = 'shortcuts';
+    } else {
+      // Ensure buttons tab stays active when adding new button
+      this._activeTab = 'buttons';
     }
 
     newConfig[type].push(newButton);
 
-    // Update config and trigger refresh
     this._selectedItem = {
       button: newButton,
       index: newConfig[type].length - 1,
       type: type
-    }
+    };
+    this._isAddingNew = true;
+    this._isFormDirty = false;
+
     this._config = newConfig;
+    this.requestUpdate();
+
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: newConfig },
       bubbles: true,
       composed: true,
     }));
   }
+
+  private handleBack() {
+    if (this._isAddingNew && !this._isFormDirty && this._selectedItem) {
+      // Remove the last added item since no changes were made
+      const newConfig = structuredClone(this._config);
+      const { type, index } = this._selectedItem;
+
+      if (newConfig[type] && newConfig[type].length > index) {
+        newConfig[type].splice(index, 1);
+        this._config = newConfig;
+
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }));
+      }
+    }
+
+    // Preserve the current tab when going back
+    const currentTab = this._selectedItem?.type === 'shortcuts' ? 'shortcuts' : 'buttons';
+
+    this._isAddingNew = false;
+    this._selectedItem = null;
+    this._isFormDirty = false;
+    this._activeTab = currentTab;
+
+    this.requestUpdate();
+  }
+
+
 
   private handleDeleteItem(type: "sources" | "scripts" | "shortcuts", index: number) {
     const newConfig = structuredClone(this._config);
@@ -504,8 +543,19 @@ class LgRemoteControlEditor extends LitElement {
     const { button, type } = this._selectedItem;
 
     return html`
-      <div class="item-editor">
-        <h3>Edit ${button.tooltip || 'Item'}</h3>
+       <div class="section-header">
+          <h3>${type === 'shortcuts' ? 'Add Shortcut' : 'Add Button'}</h3>
+          <div class="section-actions">
+            <button @click=${() => {
+        this.handleBack();
+        // Keep the current tab active
+        this._activeTab = type === 'shortcuts' ? 'shortcuts' : 'buttons';
+      }}>
+              <ha-icon icon="mdi:arrow-right"></ha-icon>
+            </button>
+          </div>
+        </div>
+      <div>
         <div class="field-group">
           <label>Name/Tooltip:</label>
           <input 
@@ -631,31 +681,35 @@ class LgRemoteControlEditor extends LitElement {
             ${text}</button>`
   }
 
-  // Updated main render method
   private renderButtonsAndShortcutsEditor() {
     const sources = this._config.sources || [];
     const scripts = this._config.scripts || [];
     const shortcuts = this._config.shortcuts || [];
 
     return html`
-      <div class="defined-buttons-list">
-        <div class="tab-navigation">
-          <button 
-            class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
-            @click=${() => this.switchTab('buttons')}
-          >
-            <ha-icon icon="mdi:remote"></ha-icon>
-            Buttons
-          </button>
-          <button 
-            class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
-            @click=${() => this.switchTab('shortcuts')}
-          >
-            <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
-            Shortcuts
-          </button>
-        </div>
-  
+    <div class="defined-buttons-list">
+      <div class="tab-navigation">
+        <button 
+          class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
+          @click=${() => this.switchTab('buttons')}
+          ?disabled=${this._isAddingNew}
+        >
+          <ha-icon icon="mdi:remote"></ha-icon>
+          Buttons
+        </button>
+        <button 
+          class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
+          @click=${() => this.switchTab('shortcuts')}
+          ?disabled=${this._isAddingNew}
+        >
+          <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
+          Shortcuts
+        </button>
+      </div>
+
+      ${this._isAddingNew ?
+        this.renderItemEditor() :
+        html`
         ${this._activeTab === 'buttons' ? html`
           <div class="section-header">
             <h3>Buttons</h3>
@@ -677,8 +731,9 @@ class LgRemoteControlEditor extends LitElement {
           </div>
           ${this.renderSection("shortcuts", shortcuts, "Shortcuts")}
         `}
-      </div>
-    `;
+      `}
+    </div>
+  `;
   }
 
   private renderButtonItem(button: Button, index: number, identifier: "sources" | "scripts" | "shortcuts") {
@@ -726,7 +781,6 @@ class LgRemoteControlEditor extends LitElement {
     <!-- Add new components here -->
     <div class="editor-section">
       ${this.renderButtonsAndShortcutsEditor()}
-      ${this.renderItemEditor()}
     </div>
 
     <br>
