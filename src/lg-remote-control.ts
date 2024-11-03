@@ -453,7 +453,7 @@ class LgRemoteControl extends LitElement {
   // Volume and channel control renderer with correct grid layout
   _renderVolumeChannelControl(stateObj) {
     const isMuted = stateObj.attributes.is_volume_muted === true;
-    const customMute = (this.config.buttons ?? []).find((item) => item.name.toLowerCase() === "mute")
+    const customMute = (this.config.replace_buttons ?? []).find((item) => item.button_name.toLowerCase() === "mute")
 
     return html`
       <div class="grid-container-volume-channel-control">
@@ -918,8 +918,8 @@ class LgRemoteControl extends LitElement {
 
     // Function to update and call the service
     const updateValue = (service: string) => {
-      const customVolumeDownScript = (this.config.buttons ?? []).find((item) => item.name.toLowerCase() === "volume_down")
-      const customVolumeUpScript = (this.config.buttons ?? []).find((item) => item.name.toLowerCase() === "volume_up")
+      const customVolumeDownScript = (this.config.replace_buttons ?? []).find((item) => item.button_name.toLowerCase() === "volume_down")
+      const customVolumeUpScript = (this.config.replace_buttons ?? []).find((item) => item.button_name.toLowerCase() === "volume_up")
 
       if (service.toLowerCase() === "volume_down" && customVolumeDownScript) {
         if (customVolumeDownScript.script_id) { this._run_script(customVolumeDownScript.script_id) }
