@@ -1,5 +1,5 @@
 // Create and register the card editor
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 
 import { EDITOR_CARD_TAG_NAME } from "./const";
@@ -42,7 +42,13 @@ const avreceivers = {
 
 const AvReceiverdevicemap = new Map(Object.entries(avreceivers));
 
-
+type ButtonType = "sources" | "scripts";
+enum IconType {
+  svg = "svg",
+  mdi = "mdi",
+  img = "img",
+  none = "none"
+}
 @customElement(EDITOR_CARD_TAG_NAME)
 class LgRemoteControlEditor extends LitElement {
   private _config: any;
@@ -51,6 +57,8 @@ class LgRemoteControlEditor extends LitElement {
   private _activeTab: "buttons" | "shortcuts" = "buttons";
   private _isAddingNew: boolean = false;
   private _isFormDirty: boolean = false;
+  private _selectedButtonType: ButtonType = "sources";
+  private _selectedIconType: IconType = IconType.svg;
 
   static get properties() {
     return {
@@ -401,6 +409,38 @@ class LgRemoteControlEditor extends LitElement {
   }
 
 
+  private handleIconTypeChange(ev: Event) {
+    const target = ev.target as HTMLInputElement;
+    this._selectedIconType = target.value as IconType;
+
+    // Clear other icon fields when switching types
+    if (this._selectedItem) {
+      const newConfig = structuredClone(this._config);
+      const { type, index } = this._selectedItem;
+
+      if (newConfig[type] && index !== -1) {
+        // Clear all icon-related fields
+        delete newConfig[type][index].svg;
+        delete newConfig[type][index].icon;
+        delete newConfig[type][index].img;
+
+        this._selectedItem = {
+          ...this._selectedItem,
+          button: newConfig[type][index]
+        };
+
+        this._config = newConfig;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }));
+      }
+    }
+
+    this.requestUpdate();
+  }
+
   private handleItemSelect(button: Button, index: number, type: "sources" | "scripts" | "shortcuts") {
     this._selectedItem = { button, index, type };
     this.requestUpdate();
@@ -455,10 +495,8 @@ class LgRemoteControlEditor extends LitElement {
     if (type === "shortcuts") {
       newButton.script_id = "";
       newButton.data = {};
-      // Ensure shortcuts tab stays active when adding new shortcut
       this._activeTab = 'shortcuts';
     } else {
-      // Ensure buttons tab stays active when adding new button
       this._activeTab = 'buttons';
     }
 
@@ -480,6 +518,12 @@ class LgRemoteControlEditor extends LitElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  private handleButtonTypeChange(ev: Event) {
+    const target = ev.target as HTMLInputElement;
+    this._selectedButtonType = target.value as ButtonType;
+    this.requestUpdate();
   }
 
   private handleBack() {
@@ -538,138 +582,318 @@ class LgRemoteControlEditor extends LitElement {
     }));
   }
 
+  private getSourceList(): string[] {
+    if (!this.hass || !this._config.entity || !this.hass.states[this._config.entity]) {
+      return [];
+    }
+    return this.hass.states[this._config.entity].attributes.source_list || [];
+  }
+
+  private handleSourceSelect(ev: Event) {
+    const target = ev.target as HTMLSelectElement;
+
+    // Update both text and tooltip with the source name
+    const sourceName = target.value;
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem!;
+
+    if (newConfig[type] && index !== -1) {
+      newConfig[type][index].text = sourceName;
+      newConfig[type][index].tooltip = sourceName;
+
+      this._selectedItem = {
+        ...this._selectedItem!,
+        button: newConfig[type][index]
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
     const { button, type } = this._selectedItem;
 
+    // Determine initial icon type
+    if (!this._selectedIconType) {
+      if (button.svg) this._selectedIconType = IconType.svg;
+      else if (button.icon) this._selectedIconType = IconType.mdi;
+      else if (button.img) this._selectedIconType = IconType.img;
+      else this._selectedIconType = IconType.svg; // default
+    }
+
+    const sourceList = this.getSourceList();
+
     return html`
-       <div class="section-header">
-          <h3>${type === 'shortcuts' ? 'Add Shortcut' : 'Add Button'}</h3>
-          <div class="section-actions">
-            <button @click=${() => {
+        <div class="section-header">
+            <h3>${type === 'shortcuts' ? 'Add Shortcut' : 'Add Button'}</h3>
+            <div class="section-actions">
+                <button @click=${() => {
         this.handleBack();
-        // Keep the current tab active
         this._activeTab = type === 'shortcuts' ? 'shortcuts' : 'buttons';
       }}>
-              <ha-icon icon="mdi:arrow-right"></ha-icon>
-            </button>
-          </div>
+                    <ha-icon icon="mdi:arrow-right"></ha-icon>
+                </button>
+            </div>
         </div>
-      <div>
-        <div class="field-group">
-          <label>Name/Tooltip:</label>
-          <input 
-            type="text" 
-            name="tooltip" 
-            .value=${button.tooltip || ''} 
-            @change=${this.handleItemUpdate}
-          />
+        <div>
+                <div class="form-group">
+                    <label class="form-group-label">Type:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" 
+                                name="buttonType" 
+                                value="sources" 
+                                ?checked=${this._selectedButtonType === "sources"}
+                                @change=${this.handleButtonTypeChange}
+                            >
+                            Source
+                        </label>
+                        <label>
+                            <input type="radio" 
+                                name="buttonType" 
+                                value="scripts" 
+                                ?checked=${this._selectedButtonType === "scripts"}
+                                @change=${this.handleButtonTypeChange}
+                            >
+                            Script
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Source Selection or Script Configuration -->
+                ${this._selectedButtonType === "sources" ? html`
+                    <div class="field-group">
+                        <label>Source:</label>
+                        <select 
+                            class="select-item"
+                            @change=${this.handleSourceSelect}
+                        >
+                            <option value="" ?selected=${!button.text}>Select a source</option>
+                            ${sourceList.map(source => html`
+                                <option 
+                                    value="${source}"
+                                    ?selected=${button.text === source}
+                                >
+                                    ${source}
+                                </option>
+                            `)}
+                        </select>
+                    </div>
+                ` : this._selectedButtonType === "scripts" ? html`
+                    <div class="field-group">
+                        <label>Script:</label>
+                        <select 
+                            class="select-item"
+                            @change=${this.handleScriptSelect}
+                        >
+                            <option value="" ?selected=${!button.script_id}>Select a script</option>
+                            ${this.getScriptsList().map(script => html`
+                                <option 
+                                    value="${script.id}"
+                                    ?selected=${button.script_id === script.id}
+                                >
+                                    ${script.name}
+                                </option>
+                            `)}
+                        </select>
+                    </div>
+                    ${button.script_id ? this.renderScriptFields(button.script_id, button.data) : ''}
+                ` : ''}
+
+                <div class="form-group">
+                    <label class="form-group-label">Icon:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" 
+                                name="iconType" 
+                                value="svg" 
+                                ?checked=${this._selectedIconType === IconType.svg}
+                                @change=${this.handleIconTypeChange}
+                            >
+                            SVG URL
+                        </label>
+                        <label>
+                            <input type="radio" 
+                                name="iconType" 
+                                value="mdi" 
+                                ?checked=${this._selectedIconType === IconType.mdi}
+                                @change=${this.handleIconTypeChange}
+                            >
+                            Icon (mdi)
+                        </label>
+                        <label>
+                            <input type="radio" 
+                                name="iconType" 
+                                value="img" 
+                                ?checked=${this._selectedIconType === IconType.img}
+                                @change=${this.handleIconTypeChange}
+                            >
+                            Image URL
+                        </label>
+                        <label>
+                            <input type="radio" 
+                                name="iconType" 
+                                value="none" 
+                                ?checked=${this._selectedIconType === IconType.none}
+                                @change=${this.handleIconTypeChange}
+                            >
+                            None
+                        </label>
+                    </div>
+                </div>
+
+                ${this._selectedIconType === IconType.svg ? html`
+                    <div class="field-group">
+                        <label>SVG URL:</label>
+                        <input 
+                            type="text" 
+                            name="svg" 
+                            .value=${button.svg || ''} 
+                            @change=${this.handleItemUpdate}
+                        />
+                    </div>
+                ` : ''}
+
+                ${this._selectedIconType === IconType.mdi ? html`
+                    <div class="field-group">
+                        <label>Icon:</label>
+                        <input 
+                            type="text" 
+                            name="icon" 
+                            .value=${button.icon || ''} 
+                            @change=${this.handleItemUpdate}
+                        />
+                    </div>
+                ` : ''}
+
+                ${this._selectedIconType === IconType.img ? html`
+                    <div class="field-group">
+                        <label>Image URL:</label>
+                        <input 
+                            type="text" 
+                            name="img" 
+                            .value=${button.img || ''} 
+                            @change=${this.handleItemUpdate}
+                        />
+                    </div>
+                ` : ''}
+
+                ${this._selectedIconType !== IconType.none ? html`
+                    <div class="field-group">
+                        <label>Icon Color (optional):</label>
+                        <input 
+                            type="text" 
+                            name="color" 
+                            placeholder="#000000"
+                            .value=${button.color || ''} 
+                            @change=${this.handleItemUpdate}
+                        />
+                    </div>
+                ` : ''}
+
+                ${this._selectedButtonType !== "sources" ? html`
+                    <div class="field-group">
+                        <label>Text:</label>
+                        <input 
+                            type="text" 
+                            name="text" 
+                            .value=${button.text || ''} 
+                            @change=${this.handleItemUpdate}
+                        />
+                    </div>
+                ` : ''}
+
+                <div class="field-group">
+                    <label>Text Color:</label>
+                    <input 
+                        type="text" 
+                        name="text_color" 
+                        placeholder="#000000"
+                        .value=${button.text_color || '#000000'} 
+                        @change=${this.handleItemUpdate}
+                    />
+                </div>
         </div>
-        
-        <div class="field-group">
-          <label>Icon:</label>
-          <input 
-            type="text" 
-            name="icon" 
-            .value=${button.icon || ''} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        <div class="field-group">
-          <label>Color:</label>
-          <input 
-            type="color" 
-            name="color" 
-            .value=${button.color || '#000000'} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        <div class="field-group">
-          <label>Image URL:</label>
-          <input 
-            type="text" 
-            name="img" 
-            .value=${button.img || ''} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        <div class="field-group">
-          <label>SVG URL:</label>
-          <input 
-            type="text" 
-            name="svg" 
-            .value=${button.svg || ''} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        <div class="field-group">
-          <label>Text:</label>
-          <input 
-            type="text" 
-            name="text" 
-            .value=${button.text || ''} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        <div class="field-group">
-          <label>Text Color:</label>
-          <input 
-            type="color" 
-            name="text_color" 
-            .value=${button.text_color || '#000000'} 
-            @change=${this.handleItemUpdate}
-          />
-        </div>
-  
-        ${button.script_id ? html`
-          <div class="field-group">
-            <label>Script ID:</label>
-            <input 
-              type="text" 
-              name="script_id" 
-              .value=${button.script_id} 
-              @change=${this.handleItemUpdate}
-            />
-          </div>
-        ` : ''}
-  
-        ${type === 'shortcuts' ? html`
-          <div class="field-group">
-            <label>Data (JSON):</label>
-            <textarea
-              name="data"
-              .value=${button.data ? JSON.stringify(button.data, null, 2) : ''}
-              @change=${this.handleItemUpdate}
-            ></textarea>
-          </div>
-        ` : ''}
-      </div>
     `;
+  }
+
+  private handleReorder(type: "shortcuts", index: number, direction: "up" | "down") {
+    const newConfig = structuredClone(this._config);
+    const items = newConfig[type];
+
+    if (!items) return;
+
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+
+    // Check bounds
+    if (newIndex < 0 || newIndex >= items.length) return;
+
+    // Swap items
+    [items[index], items[newIndex]] = [items[newIndex], items[index]];
+
+    // Update selected item index if it was moved
+    if (this._selectedItem?.type === type && this._selectedItem?.index === index) {
+      this._selectedItem.index = newIndex;
+    } else if (this._selectedItem?.type === type && this._selectedItem?.index === newIndex) {
+      this._selectedItem.index = index;
+    }
+
+    this._config = newConfig;
+    this.requestUpdate();
+
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private renderSection(type: "sources" | "scripts" | "shortcuts", buttons: Button[], title: string) {
     return html`
-      <div class="list-container">
-        ${buttons.map((button: Button, index: number) => html`
-          <div class="list-item-wrapper">
-            ${this.renderButtonItem(button, index, type)}
-            <ha-icon 
-              icon="mdi:delete"
-              class="trash" 
-              @click=${(e: Event) => {
+    <div class="list-container">
+      ${buttons.map((button: Button, index: number) => html`
+        <div class="list-item-wrapper">
+          ${this.renderButtonItem(button, index, type)}
+          <div class="item-actions">
+              ${type === "shortcuts" ? html`
+                  <ha-icon 
+                      icon="mdi:arrow-up"
+                      class="reorder ${index === 0 ? 'disabled' : ''}"
+                      @click=${(e: Event) => {
+          e.stopPropagation();
+          if (index > 0) this.handleReorder("shortcuts", index, "up");
+        }}
+                  ></ha-icon>
+                  <ha-icon 
+                      icon="mdi:arrow-down"
+                      class="reorder ${index === buttons.length - 1 ? 'disabled' : ''}"
+                      @click=${(e: Event) => {
+          e.stopPropagation();
+          if (index < buttons.length - 1) this.handleReorder("shortcuts", index, "down");
+        }}
+                  ></ha-icon>
+              ` : ''}
+              <ha-icon 
+                  icon="mdi:delete"
+                  class="trash" 
+                  @click=${(e: Event) => {
         e.stopPropagation();
         this.handleDeleteItem(type, index);
       }}
-            ></ha-icon>
+              ></ha-icon>
           </div>
-        `)}
-      </div>
-    `;
+        </div>
+      `)}
+    </div>
+  `;
   }
 
   private renderAddButton(type: "sources" | "shortcuts" | "scripts", title: string, text?: string) {
@@ -680,7 +904,6 @@ class LgRemoteControlEditor extends LitElement {
             <ha-icon icon="mdi:plus"></ha-icon> 
             ${text}</button>`
   }
-
   private renderButtonsAndShortcutsEditor() {
     const sources = this._config.sources || [];
     const scripts = this._config.scripts || [];
@@ -688,53 +911,57 @@ class LgRemoteControlEditor extends LitElement {
 
     return html`
     <div class="defined-buttons-list">
-      <div class="tab-navigation">
-        <button 
-          class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
-          @click=${() => this.switchTab('buttons')}
-          ?disabled=${this._isAddingNew}
-        >
-          <ha-icon icon="mdi:remote"></ha-icon>
-          Buttons
-        </button>
-        <button 
-          class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
-          @click=${() => this.switchTab('shortcuts')}
-          ?disabled=${this._isAddingNew}
-        >
-          <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
-          Shortcuts
-        </button>
-      </div>
+        <div class="tab-navigation">
+            <button 
+                class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
+                @click=${() => this.switchTab('buttons')}
+                ?disabled=${this._isAddingNew}
+            >
+                <ha-icon icon="mdi:remote"></ha-icon>
+                Buttons
+            </button>
+            <button 
+                class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
+                @click=${() => this.switchTab('shortcuts')}
+                ?disabled=${this._isAddingNew}
+            >
+                <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
+                Shortcuts
+            </button>
+        </div>
 
-      ${this._isAddingNew ?
+        ${this._isAddingNew ?
         this.renderItemEditor() :
         html`
-        ${this._activeTab === 'buttons' ? html`
-          <div class="section-header">
-            <h3>Buttons</h3>
-            <div class="section-actions">
-              ${this.renderAddButton("sources", "Add Source", "Source")}
-              ${this.renderAddButton("scripts", "Add Script", "Script")}
-            </div>
-          </div>
-          <div class="list-container">
-            ${this.renderSection("sources", sources, "")}
-            ${this.renderSection("scripts", scripts, "")}
-          </div>
-        ` : html`
-          <div class="section-header">
-            <h3>Shortcuts</h3>
-            <div class="section-actions">
-              ${this.renderAddButton("shortcuts", "Add Shortcut")}
-            </div>
-          </div>
-          ${this.renderSection("shortcuts", shortcuts, "Shortcuts")}
+            ${this._activeTab === 'buttons' ? html`
+                <div class="section-header">
+                    <h3>Buttons</h3>
+                    <div class="section-actions">
+                        <button
+                            title="Add Button"
+                            @click=${() => this.handleAddItem(this._selectedButtonType)}>
+                            <ha-icon icon="mdi:plus"></ha-icon>
+                        </button>
+                    </div>
+                </div>
+                <div class="list-container">
+                    ${this.renderSection("sources", sources, "")}
+                    ${this.renderSection("scripts", scripts, "")}
+                </div>
+            ` : html`
+                <div class="section-header">
+                    <h3>Shortcuts</h3>
+                    <div class="section-actions">
+                        ${this.renderAddButton("shortcuts", "Add Shortcut")}
+                    </div>
+                </div>
+                ${this.renderSection("shortcuts", shortcuts, "Shortcuts")}
+            `}
         `}
-      `}
     </div>
-  `;
+    `;
   }
+
 
   private renderButtonItem(button: Button, index: number, identifier: "sources" | "scripts" | "shortcuts") {
     return html`
@@ -792,207 +1019,418 @@ class LgRemoteControlEditor extends LitElement {
   `;
   }
 
-  // Add these styles to the existing styles
+  private getScriptServices(): Record<string, any> {
+    return this.hass?.services?.script || {};
+  }
+
+  private getScriptsList(): Array<{ id: string, name: string }> {
+    const scripts = this.getScriptServices();
+    return Object.entries(scripts).map(([id, service]) => ({
+      id,
+      name: service.name || id
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private handleScriptSelect(ev: Event) {
+    const target = ev.target as HTMLSelectElement;
+    if (!this._selectedItem) return;
+
+    const scriptId = target.value;
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem;
+
+    if (newConfig[type] && index !== -1) {
+      // Update script_id and clear previous data
+      newConfig[type][index].script_id = scriptId;
+      newConfig[type][index].data = {};
+      newConfig[type][index].tooltip = this.getScriptServices()[scriptId]?.name || scriptId;
+
+      this._selectedItem = {
+        ...this._selectedItem,
+        button: newConfig[type][index]
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
+  private renderScriptFields(scriptId: string, currentData: Record<string, any> = {}): TemplateResult | '' {
+    if (!scriptId) return '';
+
+    const scriptService = this.getScriptServices()[scriptId];
+    if (!scriptService?.fields) return '';
+
+    return html`
+        ${Object.entries(scriptService.fields).map(([fieldName, field]: [string, any]) => html`
+            <div class="field-group">
+                <label>${field.name || fieldName}${field.required ? ' *' : ''}:</label>
+                <input 
+                    type="text" 
+                    name="data.${fieldName}"
+                    placeholder="${field.example || ''}"
+                    .value=${currentData[fieldName] || ''}
+                    @change=${(ev: Event) => this.handleScriptFieldUpdate(ev, fieldName)}
+                />
+                ${field.description ? html`
+                    <div class="field-description">${field.description}</div>
+                ` : ''}
+            </div>
+        `)}
+    `;
+  }
+
+  private handleScriptFieldUpdate(ev: Event, fieldName: string) {
+    if (!this._selectedItem) return;
+
+    const target = ev.target as HTMLInputElement;
+    const value = target.value;
+
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem;
+
+    if (newConfig[type] && index !== -1) {
+      // Initialize data object if it doesn't exist
+      if (!newConfig[type][index].data) {
+        newConfig[type][index].data = {};
+      }
+
+      if (value) {
+        newConfig[type][index].data[fieldName] = value;
+      } else {
+        delete newConfig[type][index].data[fieldName];
+      }
+
+      this._selectedItem = {
+        ...this._selectedItem,
+        button: newConfig[type][index]
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
   static get styles() {
     return css`
+        .field-description {
+            font-size: 0.85em;
+            color: var(--secondary-text-color);
+            margin-top: 4px;
+            font-style: italic;
+        }
 
-    .editor-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin: 20px 0;
-    }
+        .select-item {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            background: var(--card-background-color, white);
+            color: var(--primary-text-color);
+        }
 
-    .defined-buttons-list {
-      border: 1px solid var(--divider-color, #e0e0e0);
-      padding: 16px;
-      border-radius: 4px;
-      width: 26rem;
-    }
+        .select-item option {
+            padding: 8px;
+        }
+            
+        .form-group {
+            margin-bottom: 24px;
+            width: 100%;
+        }
 
-    .list-container {
-      max-height: 400px;
-      overflow-y: auto;
-    }
+        .form-group-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--primary-text-color);
+        }
 
-    .list-item {
-      display: flex;
-      align-items: center;
-      padding: 8px;
-      cursor: pointer;
-      border-radius: 4px;
-      margin: 4px 0;
-    }
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            padding: 8px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            background: var(--secondary-background-color, #f5f5f5);
+            flex-wrap: wrap;
+        }
 
-    .list-item:hover {
-      background-color: var(--secondary-background-color);
-    }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
 
-    .list-item.selected {
-      background-color: var(--primary-color);
-      color: var(--text-primary-color);
-    }
+        .radio-group input[type="radio"] {
+            margin: 0;
+        }
+            
+        .editor-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin: 20px 0;
+            max-width: 100%;
+        }
 
-    .item-preview {
-      width: 24px;
-      height: 24px;
-      margin-right: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+        .defined-buttons-list {
+            border: 1px solid var(--divider-color, #e0e0e0);
+            padding: 16px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow: hidden;
+        }
 
-    .item-preview img {
-      max-width: 100%;
-      max-height: 100%;
-    }
+        .list-container {
+            max-height: 400px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+            padding-right: 4px; /* Add space for scrollbar */
+        }
 
-    .item-editor {
-      border: 1px solid var(--divider-color, #e0e0e0);
-      padding: 16px;
-      border-radius: 4px;
-    }
+        .list-item {
+            flex: 1;
+            min-width: 0;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
 
-    .field-group {
-      margin-bottom: 16px;
-    }
+        .list-item:hover {
+            background-color: var(--secondary-background-color);
+        }
 
-    .field-group label {
-      display: block;
-      margin-bottom: 4px;
-    }
+        .list-item.selected {
+            background-color: var(--primary-color);
+            color: var(--text-primary-color);
+        }
 
-    .field-group input {
-      width: 100%;
-      padding-block: 8px;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 4px;
-    }
+        .item-preview {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
 
+        .item-preview img {
+            max-width: 100%;
+            max-height: 100%;
+        }
 
-    .divider {
-      margin: 24px 0;
-      border: none;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
-    }
+        .item-editor {
+            border: 1px solid var(--divider-color, #e0e0e0);
+            padding: 16px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
 
-    .item-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+        .field-group {
+            margin-bottom: 16px;
+            width: 100%;
+        }
 
-    .item-data {
-      font-size: 0.8em;
-      color: var(--secondary-text-color);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
+        .field-group label {
+            display: block;
+            margin-bottom: 4px;
+        }
 
-    .data-item {
-      background: var(--secondary-background-color);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
+        .field-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
 
-    textarea {
-      width: 100%;
-      min-height: 100px;
-      padding: 8px;
-      font-family: monospace;
-      white-space: pre;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 4px;
-    }
+        .divider {
+            margin: 24px 0;
+            border: none;
+            border-top: 1px solid var(--divider-color, #e0e0e0);
+            width: 100%;
+        }
 
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+        }
 
-    .section-header h3 {
-      margin: 0px;
-    }
+        .item-info span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
-    .section-actions {
-      display: flex;
-      gap: 8px;
-    }
+        .item-data {
+            font-size: 0.8em;
+            color: var(--secondary-text-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
 
-    .section-actions button {
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      background: transparent;
-      border: 0;
-    }
+        .data-item {
+            background: var(--secondary-background-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-    .section-actions button:hover {
-      background-color: var(--secondary-background-color);
-    }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 8px;
+            font-family: monospace;
+            white-space: pre;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
 
-    .list-item-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            width: 100%;
+        }
 
-    .list-item-wrapper .list-item {
-      flex: 1;
-    }
+        .section-header h3 {
+            margin: 0;
+        }
 
-    .list-item-wrapper ha-icon.trash {
-      opacity: 0;
-      cursor: pointer;
-      color: var(--error-color);
-      padding: 4px;
-      border-radius: 4px;
-    }
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
 
-    .list-item-wrapper:hover ha-icon.trash {
-      opacity: 1;
-    }
+        .section-actions button {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            background: transparent;
+            border: 0;
+        }
 
-    .list-item-wrapper ha-icon.trash:hover {
-      background-color: var(--secondary-background-color);
-    }
+        .section-actions button:hover {
+            background-color: var(--secondary-background-color);
+        }
 
-    .tab-navigation {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-    }
+        .list-item-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 8px;
+            box-sizing: border-box;
+        }
 
-    .tab-button {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      color: var(--primary-text-color);
-      transition: all 0.2s ease;
-    }
+        .list-item-wrapper .list-item {
+            flex: 1;
+            min-width: 0;
+        }
 
-    .tab-button:hover {
-      background-color: var(--secondary-background-color);
-    }
+        .item-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            padding: 0 8px;
+            flex-shrink: 0;
+        }
 
-    .tab-button.active {
-      border-bottom-color: var(--primary-color);
-      color: var(--primary-color);
-    }
+        .list-item-wrapper:hover .item-actions {
+            opacity: 1;
+        }
 
-    .tab-button ha-icon {
-      width: 20px;
-      height: 20px;
-    }
-  `;
+        .item-actions ha-icon {
+            padding: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--primary-text-color);
+        }
+
+        .item-actions ha-icon.trash {
+            color: var(--error-color);
+        }
+
+        .item-actions ha-icon.reorder {
+            color: var(--primary-text-color);
+        }
+
+        .item-actions ha-icon.reorder.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .item-actions ha-icon:hover:not(.disabled) {
+            background-color: var(--secondary-background-color);
+        }
+
+        .tab-navigation {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--divider-color, #e0e0e0);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tab-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            color: var(--primary-text-color);
+            transition: all 0.2s ease;
+        }
+
+        .tab-button:hover {
+            background-color: var(--secondary-background-color);
+        }
+
+        .tab-button.active {
+            border-bottom-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .tab-button ha-icon {
+            width: 20px;
+            height: 20px;
+        }
+    `;
   }
 }
