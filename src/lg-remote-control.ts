@@ -5,7 +5,7 @@ import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./const";
 import "./editor";
 import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, nowTvIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./icons";
 import { globalStyles } from './styles';
-import { HomeAssistantFixed, WindowWithCards } from "./types";
+import { ButtonConfig, HomeAssistantFixed, WindowWithCards } from "./types";
 import { getMediaPlayerEntitiesByPlatform } from "./utils";
 
 
@@ -587,18 +587,17 @@ class LgRemoteControl extends LitElement {
 
   // Source buttons renderer
   _renderSourceButtons(debuggerEnabled: boolean) {
-    if (!this.config.sources) {
+    if (!this.config.buttons) {
       return this._renderDefaultSourceButtons();
     }
 
     return html`
       <div class="grid-container-source">
-        ${this.config.sources.map(source => this._renderCustomSourceButton(source))}
-        ${this._renderCustomButtons()}
+        ${this.config.buttons.map(button => this._renderCustomButton(button))}
         ${this.config.shortcuts ?
         html`
             <button class="btn_source ripple" @click=${() => this._show_shortcuts = true}>
-              <ha-icon style="heigth: 70%; width: 70%;" icon="mdi:format-list-bulleted-square"/>
+              <ha-icon style="height: 70%; width: 70%;" icon="mdi:format-list-bulleted-square"/>
             </button>
           ` : ''}
         ${debuggerEnabled ?
@@ -608,6 +607,7 @@ class LgRemoteControl extends LitElement {
       </div>
     `;
   }
+
 
   // Default source buttons
   _renderDefaultSourceButtons() {
@@ -647,11 +647,11 @@ class LgRemoteControl extends LitElement {
 
   // Custom buttons renderer
   _renderCustomButtons() {
-    if (!this.config.scripts && !this.config.scenes) return '';
+    if (!this.config.buttons) return '';
 
     return html`
-        ${(this.config.scripts || []).map(script => this._renderCustomButton(script, "script"))}
-        ${(this.config.scenes || []).map(script => this._renderCustomButton(script, "scene"))}
+        ${(this.config.buttons as ButtonConfig[])
+        .map(button => this._renderCustomButton(button))}
     `;
   }
 
@@ -802,7 +802,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Custom button renderer - handles individual script/scene buttons
-  _renderCustomButton(button, type: "script" | "scene") {
+  _renderCustomButton(button: ButtonConfig) {
     // Check if this should render as text instead of icon/image
     const willRenderText = this._willRenderText(button);
 
@@ -820,21 +820,28 @@ class LgRemoteControl extends LitElement {
       ? `color: ${button.text_color};`
       : '';
 
-    // Optional tooltip
-    const tooltip = button.tooltip ?? '';
+    // Handle click based on button type
+    const handleClick = () => {
+      if (button.action === 'source' && button.name) {
+        this._select_source(button.name);
+      } else if (button.action === 'script' && button.script_id) {
+        this._run_script(button.script_id, button.data);
+      }
+    };
 
     return html`
-    <button 
-      class="btn_source ripple ${willRenderText ? 'btn_text' : ''}"
-      style="${styleString}"
-      title="${tooltip}"
-      @click=${() => type === "script" ? this._run_script(button.script_id, button.data) : this._run_scene(button.scene_id)}
-      ?disabled=${type === "script" ? !button.script_id : !button.scene_id}
-    >
-      ${buttonContent} ${button.text ?? ""}
-    </button>
-  `;
+      <button 
+        class="btn_source ripple ${willRenderText ? 'btn_text' : ''}"
+        style="${styleString}"
+        title="${button.tooltip ?? ''}"
+        @click=${handleClick}
+        ?disabled=${button.action === 'script' && !button.script_id || button.action === 'source' && !button.name}
+      >
+        ${buttonContent} ${button.text ?? ""}
+      </button>
+    `;
   }
+
 
   // Helper for image color filtering
   _getColorFilter(color) {

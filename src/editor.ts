@@ -3,7 +3,7 @@ import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 
 import { EDITOR_CARD_TAG_NAME } from "./const";
-import { Button, HomeAssistantFixed, SelectedButton } from "./types";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./types";
 import { getMediaPlayerEntitiesByPlatform } from "./utils";
 
 
@@ -42,7 +42,6 @@ const avreceivers = {
 
 const AvReceiverdevicemap = new Map(Object.entries(avreceivers));
 
-type ButtonType = "sources" | "scripts";
 enum IconType {
   svg = "svg",
   mdi = "mdi",
@@ -54,10 +53,9 @@ class LgRemoteControlEditor extends LitElement {
   private _config: any;
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
-  private _activeTab: "buttons" | "shortcuts" = "buttons";
+  private _activeTab: ButtonType = ButtonType.button;
   private _isAddingNew: boolean = false;
   private _isFormDirty: boolean = false;
-  private _selectedButtonType: ButtonType = "sources";
   private _selectedIconType: IconType = IconType.svg;
 
   static get properties() {
@@ -71,15 +69,19 @@ class LgRemoteControlEditor extends LitElement {
     };
   }
 
-  private switchTab(tab: 'buttons' | 'shortcuts') {
+  private switchTab(tab: ButtonType) {
     this._activeTab = tab;
     this.requestUpdate();
   }
 
-  // setConfig works the same way as for the card itself
   setConfig(config) {
-    this._config = config;
-    // this._activeTab = "buttons";
+    const newConfig = {
+      ...config,
+      buttons: Array.isArray(config.buttons) ? config.buttons : [],
+      shortcuts: Array.isArray(config.shortcuts) ? config.shortcuts : []
+    };
+
+    this._config = newConfig;
     this.debugLog({ hass: this.hass, config: this._config, fn: "setConfig" })
   }
 
@@ -441,7 +443,7 @@ class LgRemoteControlEditor extends LitElement {
     this.requestUpdate();
   }
 
-  private handleItemSelect(button: Button, index: number, type: "sources" | "scripts" | "shortcuts") {
+  private handleItemSelect(button: ButtonConfig, index: number, type: ButtonType) {
     this._selectedItem = { button, index, type };
     this.requestUpdate();
   }
@@ -481,39 +483,45 @@ class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  private handleAddItem(type: "sources" | "scripts" | "shortcuts") {
+  private handleAddItem(type: ButtonType) {
     const newConfig = structuredClone(this._config);
 
-    if (!newConfig[type]) {
-      newConfig[type] = [];
-    }
+    // Ensure arrays exist
+    if (!Array.isArray(newConfig.buttons)) newConfig.buttons = [];
+    if (!Array.isArray(newConfig.shortcuts)) newConfig.shortcuts = [];
 
-    const newButton: Button = {
-      tooltip: `New ${type.slice(0, -1)}`,
+    const newButton: ButtonConfig = {
+      tooltip: `New ${type === ButtonType.button ? "Button" : "Shortcut"}`,
+      action: ButtonAction.source,
+      text: '',
+      data: {}
     };
 
-    if (type === "shortcuts") {
-      newButton.script_id = "";
-      newButton.data = {};
-      this._activeTab = 'shortcuts';
+    // Add to the correct array
+    if (type === ButtonType.button) {
+      newConfig.buttons.push(newButton);
+      this._selectedItem = {
+        button: newButton,
+        index: newConfig.buttons.length - 1,
+        type: ButtonType.button
+      };
     } else {
-      this._activeTab = 'buttons';
-      this._selectedButtonType = type === "sources" ? "sources" : "scripts";
+      newConfig.shortcuts.push(newButton);
+      this._selectedItem = {
+        button: newButton,
+        index: newConfig.shortcuts.length - 1,
+        type: ButtonType.shortcut
+      };
     }
 
-    newConfig[type].push(newButton);
-
-    this._selectedItem = {
-      button: newButton,
-      index: newConfig[type].length - 1,
-      type: type
-    };
     this._isAddingNew = true;
     this._isFormDirty = false;
-
     this._config = newConfig;
+
+    // Force update
     this.requestUpdate();
 
+    // Dispatch config change event
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: newConfig },
       bubbles: true,
@@ -521,61 +529,46 @@ class LgRemoteControlEditor extends LitElement {
     }));
   }
 
-  private handleButtonTypeChange(ev: Event) {
+
+
+  private handleButtonTypeChange(ev: Event, button: ButtonConfig) {
     const target = ev.target as HTMLInputElement;
-    const newType = target.value as ButtonType;
+    const newAction = target.value as ButtonAction;
 
-    if (!this._selectedItem) return;
-    const { button, index, type: oldType } = this._selectedItem;
-
-    // Only proceed if the type actually changed
-    if (newType === this._selectedButtonType) return;
+    if (button.action === newAction) return;
 
     const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem!;
 
-    // Remove button from old array
-    if (newConfig[oldType] && index !== -1) {
-      newConfig[oldType].splice(index, 1);
+    if (newConfig[type] && index !== -1) {
+      // Clear action-specific fields
+      const buttonToUpdate = newConfig[type][index];
+
+      // Clear all action-specific fields
+      delete buttonToUpdate.script_id;
+      delete buttonToUpdate.scene_id;
+      delete buttonToUpdate.automation_id;
+      delete buttonToUpdate.data;
+      delete buttonToUpdate.name;
+
+      // Set new action
+      buttonToUpdate.action = newAction;
+      buttonToUpdate.tooltip = `New ${newAction}`;
+
+      this._selectedItem = {
+        ...this._selectedItem!,
+        button: buttonToUpdate
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
     }
-
-    // Initialize new array if it doesn't exist
-    if (!newConfig[newType]) {
-      newConfig[newType] = [];
-    }
-
-    // Create new button object with preserved properties
-    const newButton: Button = {
-      tooltip: button.tooltip,
-      color: button.color,
-      text_color: button.text_color,
-    };
-
-    // Copy icon-related properties
-    if (button.svg) newButton.svg = button.svg;
-    if (button.icon) newButton.icon = button.icon;
-    if (button.img) newButton.img = button.img;
-
-    // Add the button to the new array
-    const newIndex = newConfig[newType].length;
-    newConfig[newType].push(newButton);
-
-    // Update selected item
-    this._selectedItem = {
-      button: newButton,
-      index: newIndex,
-      type: newType
-    };
-
-    this._selectedButtonType = newType;
-    this._config = newConfig;
-    this.requestUpdate();
-
-    // Dispatch the config change event
-    this.dispatchEvent(new CustomEvent("config-changed", {
-      detail: { config: newConfig },
-      bubbles: true,
-      composed: true,
-    }));
   }
 
   private handleBack() {
@@ -597,7 +590,7 @@ class LgRemoteControlEditor extends LitElement {
     }
 
     // Preserve the current tab when going back
-    const currentTab = this._selectedItem?.type === 'shortcuts' ? 'shortcuts' : 'buttons';
+    const currentTab = this._selectedItem?.type === ButtonType.shortcut ? ButtonType.shortcut : ButtonType.button;
 
     this._isAddingNew = false;
     this._selectedItem = null;
@@ -607,26 +600,39 @@ class LgRemoteControlEditor extends LitElement {
     this.requestUpdate();
   }
 
-
-
-  private handleDeleteItem(type: "sources" | "scripts" | "shortcuts", index: number) {
+  private handleDeleteItem(type: ButtonType, index: number) {
     const newConfig = structuredClone(this._config);
 
-    if (newConfig[type] && newConfig[type].length > index) {
-      newConfig[type].splice(index, 1);
+    // Get the correct array based on the type
+    const items = type === ButtonType.shortcut ?
+      (newConfig.shortcuts || []) :
+      (newConfig.buttons || []);
 
-      // Clear selection if deleted item was selected
-      if (this._selectedItem?.type === type && this._selectedItem?.index === index) {
-        this._selectedItem = null;
-      }
+    if (!items || index >= items.length) return;
 
-      // Update indices for remaining selected items
-      if (this._selectedItem?.type === type && this._selectedItem?.index > index) {
-        this._selectedItem.index--;
-      }
+    // Remove the item
+    items.splice(index, 1);
+
+    // Update the correct array in config
+    if (type === ButtonType.shortcut) {
+      newConfig.shortcuts = items;
+    } else {
+      newConfig.buttons = items;
+    }
+
+    // Clear selection if deleted item was selected
+    if (this._selectedItem?.type === type && this._selectedItem?.index === index) {
+      this._selectedItem = null;
+    }
+
+    // Update indices for remaining selected items
+    if (this._selectedItem?.type === type && this._selectedItem?.index > index) {
+      this._selectedItem.index--;
     }
 
     this._config = newConfig;
+    this.requestUpdate();
+
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: newConfig },
       bubbles: true,
@@ -669,219 +675,456 @@ class LgRemoteControlEditor extends LitElement {
     }
   }
 
+  private getScenesList(): Array<{ id: string; name: string }> {
+    if (!this.hass) return [];
+
+    return Object.entries(this.hass.states)
+      .filter(([entityId]) => entityId.startsWith('scene.'))
+      .map(([entityId, state]) => ({
+        id: entityId.replace('scene.', ''),
+        name: state.attributes.friendly_name || entityId.replace('scene.', '')
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private getAutomationsList(): Array<{ id: string; name: string }> {
+    if (!this.hass) return [];
+
+    return Object.entries(this.hass.states)
+      .filter(([entityId]) => entityId.startsWith('automation.'))
+      .map(([entityId, state]) => ({
+        id: entityId.replace('automation.', ''),
+        name: state.attributes.friendly_name || entityId.replace('automation.', '')
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
     const { button, type } = this._selectedItem;
 
-    // Determine initial icon type
+    // Determine initial icon type if not set
     if (!this._selectedIconType) {
       if (button.svg) this._selectedIconType = IconType.svg;
       else if (button.icon) this._selectedIconType = IconType.mdi;
       else if (button.img) this._selectedIconType = IconType.img;
-      else this._selectedIconType = IconType.svg; // default
+      else this._selectedIconType = IconType.svg;
     }
 
-    const sourceList = this.getSourceList();
-
     return html`
-        <div class="section-header">
-            <h3>${type === 'shortcuts' ? 'Add Shortcut' : 'Add Button'}</h3>
-            <div class="section-actions">
-                <button @click=${() => {
+      <div class="section-header">
+        <h3>${type === ButtonType.shortcut ? 'Add Shortcut' : 'Add Button'}</h3>
+        <div class="section-actions">
+          <button @click=${() => {
         this.handleBack();
-        this._activeTab = type === 'shortcuts' ? 'shortcuts' : 'buttons';
+        this._activeTab = type === ButtonType.shortcut ? ButtonType.shortcut : ButtonType.button;
       }}>
-                    <ha-icon icon="mdi:arrow-right"></ha-icon>
+            <ha-icon icon="mdi:arrow-left"></ha-icon>
+          </button>
+        </div>
+      </div>
+      
+      <div class="editor-content">
+        <!-- Type Selection -->
+        <div class="form-group">
+          <label class="form-group-label">Button Type:</label>
+          <div class="radio-group">
+            ${Object.values(ButtonAction).map(action => html`
+              <label>
+                <input type="radio" 
+                  name="buttonType" 
+                  value=${action}
+                  ?checked=${button.action === action}
+                  @change=${(e: Event) => this.handleButtonTypeChange(e, button)}
+                >
+                ${action.charAt(0).toUpperCase() + action.slice(1)}
+              </label>
+            `)}
+          </div>
+        </div>
+  
+        <!-- Action Selection based on type -->
+        ${this.renderActionSelection(button)}
+  
+        <!-- Icon Selection -->
+        <div class="form-group">
+          <label class="form-group-label">Icon Type:</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" 
+                name="iconType" 
+                value=${IconType.svg}
+                ?checked=${this._selectedIconType === IconType.svg}
+                @change=${this.handleIconTypeChange}
+              >
+              SVG URL
+            </label>
+            <label>
+              <input type="radio" 
+                name="iconType" 
+                value=${IconType.mdi}
+                ?checked=${this._selectedIconType === IconType.mdi}
+                @change=${this.handleIconTypeChange}
+              >
+              MDI Icon
+            </label>
+            <label>
+              <input type="radio" 
+                name="iconType" 
+                value=${IconType.img}
+                ?checked=${this._selectedIconType === IconType.img}
+                @change=${this.handleIconTypeChange}
+              >
+              Image URL
+            </label>
+            <label>
+              <input type="radio" 
+                name="iconType" 
+                value=${IconType.none}
+                ?checked=${this._selectedIconType === IconType.none}
+                @change=${this.handleIconTypeChange}
+              >
+              None
+            </label>
+          </div>
+        </div>
+  
+        <!-- Icon URL/Name input based on selected type -->
+        ${this._selectedIconType === IconType.svg ? html`
+          <div class="field-group">
+            <label>SVG URL:</label>
+            <input 
+              type="text" 
+              name="svg" 
+              class="input-field"
+              .value=${button.svg || ''} 
+              @change=${this.handleItemUpdate}
+              placeholder="https://example.com/icon.svg"
+            />
+            ${button.svg ? html`
+              <div class="icon-preview">
+                <img src="${button.svg}" alt="Icon preview" />
+              </div>
+            ` : ''}
+          </div>
+        ` : this._selectedIconType === IconType.mdi ? html`
+          <div class="field-group">
+            <label>MDI Icon Name:</label>
+            <input 
+              type="text" 
+              name="icon" 
+              class="input-field"
+              .value=${button.icon || ''} 
+              @change=${this.handleItemUpdate}
+              placeholder="mdi:television"
+            />
+            ${button.icon ? html`
+              <div class="icon-preview">
+                <ha-icon icon="${button.icon}"></ha-icon>
+              </div>
+            ` : ''}
+          </div>
+        ` : this._selectedIconType === IconType.img ? html`
+          <div class="field-group">
+            <label>Image URL:</label>
+            <input 
+              type="text" 
+              name="img" 
+              class="input-field"
+              .value=${button.img || ''} 
+              @change=${this.handleItemUpdate}
+              placeholder="https://example.com/image.png"
+            />
+            ${button.img ? html`
+              <div class="icon-preview">
+                <img src="${button.img}" alt="Icon preview" />
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+  
+        <!-- Color settings -->
+        ${this._selectedIconType !== IconType.none ? html`
+          <div class="field-group">
+            <label>Icon Color:</label>
+            <div class="color-input-container">
+              <input 
+                type="color" 
+                name="color"
+                class="color-picker"
+                .value=${button.color || '#000000'} 
+                @change=${this.handleItemUpdate}
+              />
+              <input 
+                type="text" 
+                name="color"
+                class="color-text input-field"
+                .value=${button.color || ''} 
+                @change=${this.handleItemUpdate}
+                placeholder="#000000"
+              />
+              ${button.color ? html`
+                <button class="clear-button" @click=${() => this.clearColor('color')}>
+                  <ha-icon icon="mdi:close"></ha-icon>
                 </button>
+              ` : ''}
             </div>
+          </div>
+        ` : ''}
+  
+        <!-- Text fields -->
+        <div class="field-group">
+          <label>Display Text:</label>
+          <input 
+            type="text" 
+            name="text" 
+            class="input-field"
+            .value=${button.text || ''} 
+            @change=${this.handleItemUpdate}
+            placeholder="Button text"
+          />
         </div>
-        <div>
-                <div class="form-group">
-                    <label class="form-group-label">Type:</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" 
-                                name="buttonType" 
-                                value="sources" 
-                                ?checked=${this._selectedButtonType === "sources"}
-                                @change=${this.handleButtonTypeChange}
-                            >
-                            Source
-                        </label>
-                        <label>
-                            <input type="radio" 
-                                name="buttonType" 
-                                value="scripts" 
-                                ?checked=${this._selectedButtonType === "scripts"}
-                                @change=${this.handleButtonTypeChange}
-                            >
-                            Script
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Source Selection or Script Configuration -->
-                ${this._selectedButtonType === "sources" ? html`
-                    <div class="field-group">
-                        <label>Source:</label>
-                        <select 
-                            class="select-item"
-                            @change=${this.handleSourceSelect}
-                        >
-                            <option value="" ?selected=${!button.text}>Select a source</option>
-                            ${sourceList.map(source => html`
-                                <option 
-                                    value="${source}"
-                                    ?selected=${button.text === source}
-                                >
-                                    ${source}
-                                </option>
-                            `)}
-                        </select>
-                    </div>
-                ` : this._selectedButtonType === "scripts" ? html`
-                    <div class="field-group">
-                        <label>Script:</label>
-                        <select 
-                            class="select-item"
-                            @change=${this.handleScriptSelect}
-                        >
-                            <option value="" ?selected=${!button.script_id}>Select a script</option>
-                            ${this.getScriptsList().map(script => html`
-                                <option 
-                                    value="${script.id}"
-                                    ?selected=${button.script_id === script.id}
-                                >
-                                    ${script.name}
-                                </option>
-                            `)}
-                        </select>
-                    </div>
-                    ${button.script_id ? this.renderScriptFields(button.script_id, button.data) : ''}
-                ` : ''}
-
-                <div class="form-group">
-                    <label class="form-group-label">Icon:</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" 
-                                name="iconType" 
-                                value="svg" 
-                                ?checked=${this._selectedIconType === IconType.svg}
-                                @change=${this.handleIconTypeChange}
-                            >
-                            SVG URL
-                        </label>
-                        <label>
-                            <input type="radio" 
-                                name="iconType" 
-                                value="mdi" 
-                                ?checked=${this._selectedIconType === IconType.mdi}
-                                @change=${this.handleIconTypeChange}
-                            >
-                            Icon (mdi)
-                        </label>
-                        <label>
-                            <input type="radio" 
-                                name="iconType" 
-                                value="img" 
-                                ?checked=${this._selectedIconType === IconType.img}
-                                @change=${this.handleIconTypeChange}
-                            >
-                            Image URL
-                        </label>
-                        <label>
-                            <input type="radio" 
-                                name="iconType" 
-                                value="none" 
-                                ?checked=${this._selectedIconType === IconType.none}
-                                @change=${this.handleIconTypeChange}
-                            >
-                            None
-                        </label>
-                    </div>
-                </div>
-
-                ${this._selectedIconType === IconType.svg ? html`
-                    <div class="field-group">
-                        <label>SVG URL:</label>
-                        <input 
-                            type="text" 
-                            name="svg" 
-                            .value=${button.svg || ''} 
-                            @change=${this.handleItemUpdate}
-                        />
-                    </div>
-                ` : ''}
-
-                ${this._selectedIconType === IconType.mdi ? html`
-                    <div class="field-group">
-                        <label>Icon:</label>
-                        <input 
-                            type="text" 
-                            name="icon" 
-                            .value=${button.icon || ''} 
-                            @change=${this.handleItemUpdate}
-                        />
-                    </div>
-                ` : ''}
-
-                ${this._selectedIconType === IconType.img ? html`
-                    <div class="field-group">
-                        <label>Image URL:</label>
-                        <input 
-                            type="text" 
-                            name="img" 
-                            .value=${button.img || ''} 
-                            @change=${this.handleItemUpdate}
-                        />
-                    </div>
-                ` : ''}
-
-                ${this._selectedIconType !== IconType.none ? html`
-                    <div class="field-group">
-                        <label>Icon Color (optional):</label>
-                        <input 
-                            type="text" 
-                            name="color" 
-                            placeholder="#000000"
-                            .value=${button.color || ''} 
-                            @change=${this.handleItemUpdate}
-                        />
-                    </div>
-                ` : ''}
-
-                ${this._selectedButtonType !== "sources" ? html`
-                    <div class="field-group">
-                        <label>Text:</label>
-                        <input 
-                            type="text" 
-                            name="text" 
-                            .value=${button.text || ''} 
-                            @change=${this.handleItemUpdate}
-                        />
-                    </div>
-                ` : ''}
-
-                <div class="field-group">
-                    <label>Text Color:</label>
-                    <input 
-                        type="text" 
-                        name="text_color" 
-                        placeholder="#000000"
-                        .value=${button.text_color || '#000000'} 
-                        @change=${this.handleItemUpdate}
-                    />
-                </div>
+  
+        <div class="field-group">
+          <label>Text Color:</label>
+          <div class="color-input-container">
+            <input 
+              type="color" 
+              name="text_color"
+              class="color-picker"
+              .value=${button.text_color || '#000000'} 
+              @change=${this.handleItemUpdate}
+            />
+            <input 
+              type="text" 
+              name="text_color"
+              class="color-text input-field"
+              .value=${button.text_color || ''} 
+              @change=${this.handleItemUpdate}
+              placeholder="#000000"
+            />
+            ${button.text_color ? html`
+              <button class="clear-button" @click=${() => this.clearColor('text_color')}>
+                <ha-icon icon="mdi:close"></ha-icon>
+              </button>
+            ` : ''}
+          </div>
         </div>
+  
+        <div class="field-group">
+          <label>Tooltip:</label>
+          <input 
+            type="text" 
+            name="tooltip" 
+            class="input-field"
+            .value=${button.tooltip || ''} 
+            @change=${this.handleItemUpdate}
+            placeholder="Hover text"
+          />
+        </div>
+      </div>
+  
+      <!-- Footer Actions -->
+      <div class="editor-footer">
+        <button class="delete-button" @click=${() => {
+        if (confirm('Are you sure you want to delete this item?')) {
+          this.handleDeleteItem(type, this._selectedItem!.index);
+          this.handleBack();
+        }
+      }}>
+          <ha-icon icon="mdi:delete"></ha-icon>
+          Delete
+        </button>
+      </div>
     `;
   }
 
-  private handleReorder(type: "shortcuts", index: number, direction: "up" | "down") {
-    const newConfig = structuredClone(this._config);
-    const items = newConfig[type];
+  // Add this helper method for clearing colors
+  private clearColor(field: 'color' | 'text_color') {
+    if (!this._selectedItem) return;
 
-    if (!items) return;
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem;
+
+    if (newConfig[type] && index !== -1) {
+      delete newConfig[type][index][field];
+
+      this._selectedItem = {
+        ...this._selectedItem,
+        button: newConfig[type][index]
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
+  private handleActionSelect(ev: Event) {
+    const target = ev.target as HTMLSelectElement;
+    if (!this._selectedItem) return;
+
+    const value = target.value;
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem;
+
+    if (newConfig[type] && index !== -1) {
+      const button = newConfig[type][index];
+      const [prefix, id] = value.split('.');
+
+      // Clear previous action data
+      delete button.script_id;
+      delete button.scene_id;
+      delete button.automation_id;
+      delete button.name;
+      delete button.data;
+
+      // Set new data based on action type
+      switch (button.action) {
+        case ButtonAction.source:
+          button.name = value;
+          button.tooltip = value;
+          break;
+        case ButtonAction.script:
+          button.script_id = id;
+          button.data = {};
+          button.tooltip = this.getScriptServices()[id]?.name || id;
+          break;
+        case ButtonAction.scene:
+          button.scene_id = id;
+          button.tooltip = this.hass.states[`scene.${id}`]?.attributes.friendly_name || id;
+          break;
+        case ButtonAction.automation:
+          button.automation_id = id;
+          button.tooltip = this.hass.states[`automation.${id}`]?.attributes.friendly_name || id;
+          break;
+      }
+
+      this._selectedItem = {
+        ...this._selectedItem,
+        button: button
+      };
+
+      this._config = newConfig;
+      this.requestUpdate();
+
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
+  private renderActionSelection(button: ButtonConfig): TemplateResult {
+    const actionLabel = {
+      [ButtonAction.source]: 'Source',
+      [ButtonAction.script]: 'Script',
+      [ButtonAction.scene]: 'Scene',
+      [ButtonAction.automation]: 'Automation'
+    }[button.action];
+
+    let options: Array<{ value: string; label: string; selected: boolean }> = [];
+    let currentValue = '';
+
+    switch (button.action) {
+      case ButtonAction.source:
+        options = this.getSourceList().map(source => ({
+          value: source,
+          label: source,
+          selected: button.name === source
+        }));
+        currentValue = button.name || '';
+        break;
+
+      case ButtonAction.script:
+        options = this.getScriptsList().map(script => ({
+          value: `script.${script.id}`,
+          label: script.name,
+          selected: button.script_id === script.id
+        }));
+        currentValue = button.script_id ? `script.${button.script_id}` : '';
+        break;
+
+      case ButtonAction.scene:
+        options = this.getScenesList().map(scene => ({
+          value: `scene.${scene.id}`,
+          label: scene.name,
+          selected: button.scene_id === scene.id
+        }));
+        currentValue = button.scene_id ? `scene.${button.scene_id}` : '';
+        break;
+
+      case ButtonAction.automation:
+        options = this.getAutomationsList().map(automation => ({
+          value: `automation.${automation.id}`,
+          label: automation.name,
+          selected: button.automation_id === automation.id
+        }));
+        currentValue = button.automation_id ? `automation.${button.automation_id}` : '';
+        break;
+    }
+
+    return html`
+      <div class="field-group">
+        <label>${actionLabel}:</label>
+        <select 
+          class="select-item"
+          @change=${this.handleActionSelect}
+          .value=${currentValue}
+        >
+          <option value="" ?selected=${!currentValue}>Select a ${actionLabel.toLowerCase()}</option>
+          ${options.map(option => html`
+            <option 
+              value="${option.value}"
+              ?selected=${option.selected}
+            >
+              ${option.label}
+            </option>
+          `)}
+        </select>
+        ${button.action === ButtonAction.script && button.script_id ?
+        this.renderScriptFields(button.script_id, button.data) : ''}
+      </div>
+    `;
+  }
+
+  private renderTypeSelection(button: ButtonConfig): TemplateResult {
+    return html`
+      <div class="form-group">
+        <label class="form-group-label">Button Type:</label>
+        <div class="radio-group">
+          ${Object.values(ButtonAction).map(action => html`
+            <label>
+              <input type="radio" 
+                name="buttonType" 
+                value=${action}
+                ?checked=${button.action === action}
+                @change=${(e: Event) => this.handleButtonTypeChange(e, button)}
+              >
+              ${action.charAt(0).toUpperCase() + action.slice(1)}
+            </label>
+          `)}
+        </div>
+      </div>
+      ${this.renderActionSelection(button)}
+    `;
+  }
+
+  private handleReorder(type: ButtonType, index: number, direction: "up" | "down") {
+    const newConfig = structuredClone(this._config);
+
+    // Get the correct array based on the type
+    const items = type === ButtonType.shortcut ?
+      (newConfig.shortcuts || []) :
+      (newConfig.buttons || []);
+
+    if (!items || items.length < 2) return;
 
     const newIndex = direction === "up" ? index - 1 : index + 1;
 
@@ -889,7 +1132,14 @@ class LgRemoteControlEditor extends LitElement {
     if (newIndex < 0 || newIndex >= items.length) return;
 
     // Swap items
-    [items[index], items[newIndex]] = [items[newIndex], items[index]];
+    [items[newIndex], items[index]] = [items[index], items[newIndex]];
+
+    // Update the correct array in config
+    if (type === ButtonType.shortcut) {
+      newConfig.shortcuts = items;
+    } else {
+      newConfig.buttons = items;
+    }
 
     // Update selected item index if it was moved
     if (this._selectedItem?.type === type && this._selectedItem?.index === index) {
@@ -908,47 +1158,49 @@ class LgRemoteControlEditor extends LitElement {
     }));
   }
 
-  private renderSection(type: "sources" | "scripts" | "shortcuts", buttons: Button[], title: string) {
+  private renderSection(type: ButtonType, buttons: ButtonConfig[]) {
+    if (!buttons) return html``;
+
     return html`
-    <div class="list-container">
-      ${buttons.map((button: Button, index: number) => html`
-        <div class="list-item-wrapper">
-          ${this.renderButtonItem(button, index, type)}
-          <div class="item-actions">
-              ${type === "shortcuts" ? html`
-                  <ha-icon 
-                      icon="mdi:arrow-up"
-                      class="reorder ${index === 0 ? 'disabled' : ''}"
-                      @click=${(e: Event) => {
-          e.stopPropagation();
-          if (index > 0) this.handleReorder("shortcuts", index, "up");
-        }}
-                  ></ha-icon>
-                  <ha-icon 
-                      icon="mdi:arrow-down"
-                      class="reorder ${index === buttons.length - 1 ? 'disabled' : ''}"
-                      @click=${(e: Event) => {
-          e.stopPropagation();
-          if (index < buttons.length - 1) this.handleReorder("shortcuts", index, "down");
-        }}
-                  ></ha-icon>
-              ` : ''}
+      <div class="list-container">
+        ${buttons.map((button: ButtonConfig, index: number) => html`
+          <div class="list-item-wrapper">
+            ${this.renderButtonItem(button, index, type)}
+            <div class="item-actions">
+              <ha-icon 
+                  icon="mdi:arrow-up"
+                  class="reorder ${index === 0 ? 'disabled' : ''}"
+                  @click=${(e: Event) => {
+        e.stopPropagation();
+        if (index > 0) this.handleReorder(type, index, "up");
+      }}
+              ></ha-icon>
+              <ha-icon 
+                  icon="mdi:arrow-down"
+                  class="reorder ${index === buttons.length - 1 ? 'disabled' : ''}"
+                  @click=${(e: Event) => {
+        e.stopPropagation();
+        if (index < buttons.length - 1) this.handleReorder(type, index, "down");
+      }}
+              ></ha-icon>
               <ha-icon 
                   icon="mdi:delete"
                   class="trash" 
                   @click=${(e: Event) => {
         e.stopPropagation();
-        this.handleDeleteItem(type, index);
+        if (confirm('Are you sure you want to delete this item?')) {
+          this.handleDeleteItem(type, index);
+        }
       }}
               ></ha-icon>
+            </div>
           </div>
-        </div>
-      `)}
-    </div>
+        `)}
+      </div>
     `;
   }
 
-  private renderAddButton(type: "sources" | "shortcuts" | "scripts", title: string, text?: string) {
+  private renderAddButton(type: ButtonType, title: string, text?: string) {
     return html`
           <button
             title="${title}"
@@ -957,65 +1209,64 @@ class LgRemoteControlEditor extends LitElement {
             ${text}</button>`
   }
   private renderButtonsAndShortcutsEditor() {
-    const sources = this._config.sources || [];
-    const scripts = this._config.scripts || [];
-    const shortcuts = this._config.shortcuts || [];
+    // Ensure arrays exist and are initialized
+    const buttons = Array.isArray(this._config.buttons) ? this._config.buttons : [];
+    const shortcuts = Array.isArray(this._config.shortcuts) ? this._config.shortcuts : [];
 
     return html`
-    <div class="defined-buttons-list">
+      <div class="defined-buttons-list">
         <div class="tab-navigation">
-            <button 
-                class="tab-button ${this._activeTab === 'buttons' ? 'active' : ''}"
-                @click=${() => this.switchTab('buttons')}
-                ?disabled=${this._isAddingNew}
-            >
-                <ha-icon icon="mdi:remote"></ha-icon>
-                Buttons
-            </button>
-            <button 
-                class="tab-button ${this._activeTab === 'shortcuts' ? 'active' : ''}"
-                @click=${() => this.switchTab('shortcuts')}
-                ?disabled=${this._isAddingNew}
-            >
-                <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
-                Shortcuts
-            </button>
+          <button 
+            class="tab-button ${this._activeTab === ButtonType.button ? 'active' : ''}"
+            @click=${() => this.switchTab(ButtonType.button)}
+            ?disabled=${this._isAddingNew}
+          >
+            <ha-icon icon="mdi:remote"></ha-icon>
+            Buttons
+          </button>
+          <button 
+            class="tab-button ${this._activeTab === ButtonType.shortcut ? 'active' : ''}"
+            @click=${() => this.switchTab(ButtonType.shortcut)}
+            ?disabled=${this._isAddingNew}
+          >
+            <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
+            Shortcuts
+          </button>
         </div>
-
+  
         ${this._isAddingNew ?
         this.renderItemEditor() :
         html`
-            ${this._activeTab === 'buttons' ? html`
-                <div class="section-header">
-                    <h3>Buttons</h3>
-                    <div class="section-actions">
-                        <button
-                            title="Add Button"
-                            @click=${() => this.handleAddItem(this._selectedButtonType)}>
-                            <ha-icon icon="mdi:plus"></ha-icon>
-                        </button>
-                    </div>
+            ${this._activeTab === ButtonType.button ? html`
+              <div class="section-header">
+                <h3>Buttons</h3>
+                <div class="section-actions">
+                  <button
+                    title="Add Button"
+                    @click=${() => this.handleAddItem(ButtonType.button)}>
+                    <ha-icon icon="mdi:plus"></ha-icon>
+                  </button>
                 </div>
-                <div class="list-container">
-                    ${this.renderSection("sources", sources, "")}
-                    ${this.renderSection("scripts", scripts, "")}
-                </div>
+              </div>
+              <div class="list-container">
+                ${this.renderSection(ButtonType.button, buttons)}
+              </div>
             ` : html`
-                <div class="section-header">
-                    <h3>Shortcuts</h3>
-                    <div class="section-actions">
-                        ${this.renderAddButton("shortcuts", "Add Shortcut")}
-                    </div>
+              <div class="section-header">
+                <h3>Shortcuts</h3>
+                <div class="section-actions">
+                  ${this.renderAddButton(ButtonType.shortcut, "Add Shortcut")}
                 </div>
-                ${this.renderSection("shortcuts", shortcuts, "Shortcuts")}
+              </div>
+              ${this.renderSection(ButtonType.shortcut, shortcuts)}
             `}
-        `}
-    </div>
+          `}
+      </div>
     `;
   }
 
 
-  private renderButtonItem(button: Button, index: number, identifier: "sources" | "scripts" | "shortcuts") {
+  private renderButtonItem(button: ButtonConfig, index: number, identifier: ButtonType) {
     return html`
       <div class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}"
            @click=${() => this.handleItemSelect(button, index, identifier)}>

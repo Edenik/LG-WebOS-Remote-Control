@@ -23,7 +23,7 @@ export interface WindowWithCards extends Window {
 }
 
 
-export interface Button {
+export interface ButtonConfig {
   tooltip?: string;
   color?: string;
   icon?: string;
@@ -33,12 +33,25 @@ export interface Button {
   text_color?: string;
   script_id?: string;
   scene_id?: string;
+  automation_id?: string;
   data?: Record<string, any>;
+  action: ButtonAction;
+  name?: string;
 };
 
+export enum ButtonAction {
+  source = "source",
+  script = "script",
+  scene = "scene",
+  automation = "automation"
+}
 
+export enum ButtonType {
+  button = "button",
+  shortcut = "shortcut"
+}
 export interface SelectedButton {
-  type: "sources" | "scripts" | "shortcuts",
+  type: ButtonType,
   index: number;
-  button: Button;
+  button: ButtonConfig;
 }
