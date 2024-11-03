@@ -988,35 +988,219 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  // Modify the existing render method to include the new components
+
+  private renderBasicConfig() {
+    return html`
+        <ha-expansion-panel header="Basic Configuration">
+            <div class="section-content">
+                <div class="field-group">
+                    <label class="field-label">LG Media Player Entity</label>
+                    <div class="device-config">
+                        <select name="entity" class="select-item" .value="${this._config.entity}"
+                                @focusout=${this.configChanged}
+                                @change=${this.configChanged}>
+                            ${this._config.entity ? '' : html`<option value="" selected> - - - - </option>`}
+                            ${getMediaPlayerEntitiesByPlatform(this.hass, 'webostv').map((eid) => html`
+                                <option value="${eid}" ?selected=${eid === this._config.entity}>
+                                    ${this.hass.states[eid].attributes.friendly_name || eid}
+                                </option>
+                            `)}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">MAC Address</label>
+                    <input type="text" class="input-field" name="mac"
+                           .value="${this._config.mac || '00:11:22:33:44:55'}"
+                           @focusout=${this.configChanged}
+                           @change=${this.configChanged}>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Remote Control Name (optional)</label>
+                    <input type="text" class="input-field" name="name"
+                           .value="${this._config.name || ''}"
+                           @input=${this.configChanged}>
+                </div>
+            </div>
+        </ha-expansion-panel>
+    `;
+  }
+
+  private renderAppearanceConfig() {
+    const colors = this._config.colors || {};
+    return html`
+        <ha-expansion-panel header="Appearance Configuration">
+            <div class="section-content">
+                <div class="field-group">
+                    <label class="field-label">Colors</label>
+                    <div class="color-config">
+                        <div class="color-item">
+                            <span class="color-label">Buttons Color</span>
+                            <div class="color-input-group">
+                                <input type="color" class="color-input" name="buttons"
+                                       .value="${colors.buttons || ''}"
+                                       @input=${this.colorsConfigChanged}>
+                                <ha-icon data-input-name="buttons" icon="mdi:trash-can-outline"
+                                        @click=${this.colorsConfigChanged}></ha-icon>
+                            </div>
+                        </div>
+
+                        <div class="color-item">
+                            <span class="color-label">Text Color</span>
+                            <div class="color-input-group">
+                                <input type="color" class="color-input" name="text"
+                                       .value="${colors.text || ''}"
+                                       @input=${this.colorsConfigChanged}>
+                                <ha-icon data-input-name="text" icon="mdi:trash-can-outline"
+                                        @click=${this.colorsConfigChanged}></ha-icon>
+                            </div>
+                        </div>
+
+                        <div class="color-item">
+                            <span class="color-label">Background Color</span>
+                            <div class="color-input-group">
+                                <input type="color" class="color-input" name="background"
+                                       .value="${colors.background || ''}"
+                                       @input=${this.colorsConfigChanged}>
+                                <ha-icon data-input-name="background" icon="mdi:trash-can-outline"
+                                        @click=${this.colorsConfigChanged}></ha-icon>
+                            </div>
+                        </div>
+
+                        <div class="color-item">
+                            <span class="color-label">Border Color</span>
+                            <div class="color-input-group">
+                                <input type="color" class="color-input" name="border"
+                                       .value="${colors.border || ''}"
+                                       @input=${this.colorsConfigChanged}>
+                                <ha-icon data-input-name="border" icon="mdi:trash-can-outline"
+                                        @click=${this.colorsConfigChanged}></ha-icon>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dimensions-group">
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Card Scale</span>
+                            <span class="slider-value">${this._config.dimensions?.scale || 1}</span>
+                        </div>
+                        <input type="range" min="0.5" max="1.5" step="0.01"
+                               .value="${this._config.dimensions?.scale || 1}"
+                               name="scale"
+                               @input=${this.dimensionsConfigChanged}>
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Border Width</span>
+                            <span class="slider-value">${parseFloat(this._config.dimensions?.border_width || 1)}px</span>
+                        </div>
+                        <input type="range" min="1" max="5" step="1"
+                               .value="${parseFloat(this._config.dimensions?.border_width || 1)}"
+                               name="border_width"
+                               @input=${this.dimensionsConfigChanged}>
+                    </div>
+                </div>
+            </div>
+        </ha-expansion-panel>
+    `;
+  }
+
+  private renderAdvancedConfig() {
+    return html`
+        <ha-expansion-panel header="Advanced Configuration">
+            <div class="section-content">
+                <div class="field-group">
+                    <label class="field-label">Display Color Buttons</label>
+                    <select name="color_buttons" class="select-item"
+                            .value=${String(this._config.color_buttons ?? false)}
+                            @change=${this.configChangedBool}>
+                        <option value="true" ?selected=${Boolean(this._config.color_buttons)}>On</option>
+                        <option value="false" ?selected=${!Boolean(this._config.color_buttons)}>Off</option>
+                    </select>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Debug Mode</label>
+                    <select name="debug" class="select-item"
+                            .value=${String(this._config.debug ?? false)}
+                            @change=${this.configChangedBool}>
+                        <option value="true" ?selected=${Boolean(this._config.debug)}>On</option>
+                        <option value="false" ?selected=${!Boolean(this._config.debug)}>Off</option>
+                    </select>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">AV Receiver</label>
+                    <div class="device-config">
+                        <select name="av_receiver_family" class="select-item device-select"
+                                .value=${this._config.av_receiver_family || ''}
+                                @focusout=${this.configChanged}
+                                @change=${this.configChanged}>
+                            ${!this._config.av_receiver_family ? html`<option value="" selected> - - - - </option>` : ''}
+                            ${[...AvReceiverdevicemap.entries()].map(([family, data]) => html`
+                                <option value="${family}" ?selected=${family === this._config.av_receiver_family}>
+                                    ${data.friendlyName}
+                                </option>
+                            `)}
+                        </select>
+                        ${this._config.av_receiver_family ? html`
+                            <button class="clear-button" @click=${this._erase_av_receiver}>
+                                <ha-icon icon="mdi:trash-can-outline"></ha-icon>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${this._config.av_receiver_family ? html`
+                    <div class="field-group">
+                        <label class="field-label">AV Receiver Entity</label>
+                        <select name="ampli_entity" class="select-item"
+                                .value=${this._config.ampli_entity || ''}
+                                @focusout=${this.configChanged}
+                                @change=${this.configChanged}>
+                            ${!this._config.ampli_entity ? html`<option value="" selected> - - - - </option>` : ''}
+                            ${getMediaPlayerEntitiesByPlatform(this.hass, this._config.av_receiver_family).map(eid => html`
+                                <option value="${eid}" ?selected=${eid === this._config.ampli_entity}>
+                                    ${this.hass.states[eid].attributes.friendly_name || eid}
+                                </option>
+                            `)}
+                        </select>
+                    </div>
+                ` : ''}
+            </div>
+        </ha-expansion-panel>
+    `;
+  }
+
   render() {
     if (!this.hass || !this._config) {
       return html``;
     }
 
     return html`
-    ${this.getLgTvEntityDropdown(this._config.entity)}
-    ${this.selectMac(this._config.mac)}
-    ${this.setRemoteName(this._config.name)}
-    ${this.selectColors(this._config)}
-    ${this.colorButtonsConfig()}
-    ${this.debugConfig()}
-    ${this.getDeviceAVReceiverDropdown(this._config.av_receiver_family)}
-    ${this.getMediaPlayerEntityDropdown(this._config.av_receiver_family)}
-    ${this.setDimensions(this._config.dimensions ?? {})}
-    
-    <!-- Add new components here -->
-    <div class="editor-section">
-      ${this.renderButtonsAndShortcutsEditor()}
-    </div>
+        <div class="container">
+            ${this.renderBasicConfig()}
+            ${this.renderAppearanceConfig()}
+            ${this.renderAdvancedConfig()}
+            
+            <!-- Buttons and Shortcuts Editor -->
+            <ha-expansion-panel header="Buttons & Shortcuts">
+                <div class="section-content">
+                    ${this.renderButtonsAndShortcutsEditor()}
+                </div>
+            </ha-expansion-panel>
 
-    <br>
-    <p>Other functionalities must be configured manually in code editor</p>
-    <p>references to <a href="https://github.com/madmicio/LG-WebOS-Remote-Control">https://github.com/madmicio/LG-WebOS-Remote-Control</a></p>
-    <div class="donations" style="display: flex">
-      <!-- Donations section unchanged -->
-    </div>
-  `;
+            <div style="margin-top: 16px;">
+                <p>Other functionalities must be configured manually in code editor</p>
+                <p>References to <a href="https://github.com/madmicio/LG-WebOS-Remote-Control">https://github.com/madmicio/LG-WebOS-Remote-Control</a></p>
+            </div>
+        </div>
+    `;
   }
 
   private getScriptServices(): Record<string, any> {
@@ -1125,6 +1309,49 @@ class LgRemoteControlEditor extends LitElement {
 
   static get styles() {
     return css`
+        /* Container and Layout Styles */
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .section-content {
+            padding: 16px;
+        }
+
+        /* Field Styles */
+        .field-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 16px;
+            width: 100%;
+        }
+
+        .field-label {
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: var(--primary-text-color);
+        }
+
         .field-description {
             font-size: 0.85em;
             color: var(--secondary-text-color);
@@ -1132,6 +1359,7 @@ class LgRemoteControlEditor extends LitElement {
             font-style: italic;
         }
 
+        /* Input Styles */
         .select-item {
             width: 100%;
             padding: 8px;
@@ -1139,45 +1367,119 @@ class LgRemoteControlEditor extends LitElement {
             border-radius: 4px;
             background: var(--card-background-color, white);
             color: var(--primary-text-color);
+            box-sizing: border-box;
         }
 
-        .select-item option {
-            padding: 8px;
-        }
-            
-        .form-group {
-            margin-bottom: 24px;
+        .input-field {
             width: 100%;
-        }
-
-        .form-group-label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--primary-text-color);
-        }
-
-        .radio-group {
-            display: flex;
-            gap: 16px;
             padding: 8px;
             border: 1px solid var(--divider-color, #e0e0e0);
             border-radius: 4px;
-            background: var(--secondary-background-color, #f5f5f5);
-            flex-wrap: wrap;
+            background: var(--card-background-color, white);
+            color: var(--primary-text-color);
+            box-sizing: border-box;
         }
 
-        .radio-group label {
+        /* Color Configuration Styles */
+        .color-config {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            width: 100%;
+        }
+
+        .color-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            cursor: pointer;
         }
 
-        .radio-group input[type="radio"] {
-            margin: 0;
+        .color-label {
+            flex: 1;
         }
-            
+
+        .color-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-input {
+            padding: 4px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            width: 50px;
+        }
+
+        /* Toggle and Slider Styles */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 8px 0;
+        }
+
+        .toggle-label {
+            font-weight: 500;
+        }
+
+        .dimensions-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slider-value {
+            font-size: 0.9em;
+            color: var(--secondary-text-color);
+        }
+
+        /* Device Configuration Styles */
+        .device-config {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .device-select {
+            flex: 1;
+        }
+
+        .clear-button {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: var(--error-color);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .clear-button:hover {
+            background: var(--error-color-darker, #c62828);
+        }
+
+        /* Icon Styles */
+        ha-icon {
+            --mdc-icon-size: 20px;
+            color: var(--secondary-text-color);
+        }
+
+        /* Button Editor Styles */
         .editor-section {
             display: grid;
             grid-template-columns: 1fr;
@@ -1201,7 +1503,7 @@ class LgRemoteControlEditor extends LitElement {
             overflow-y: auto;
             width: 100%;
             box-sizing: border-box;
-            padding-right: 4px; /* Add space for scrollbar */
+            padding-right: 4px;
         }
 
         .list-item {
@@ -1226,6 +1528,14 @@ class LgRemoteControlEditor extends LitElement {
             color: var(--text-primary-color);
         }
 
+        .list-item-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+
         .item-preview {
             width: 24px;
             height: 24px;
@@ -1239,39 +1549,7 @@ class LgRemoteControlEditor extends LitElement {
         .item-preview img {
             max-width: 100%;
             max-height: 100%;
-        }
-
-        .item-editor {
-            border: 1px solid var(--divider-color, #e0e0e0);
-            padding: 16px;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .field-group {
-            margin-bottom: 16px;
-            width: 100%;
-        }
-
-        .field-group label {
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .field-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--divider-color, #e0e0e0);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .divider {
-            margin: 24px 0;
-            border: none;
-            border-top: 1px solid var(--divider-color, #e0e0e0);
-            width: 100%;
+            object-fit: contain;
         }
 
         .item-info {
@@ -1304,59 +1582,6 @@ class LgRemoteControlEditor extends LitElement {
             max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-
-        textarea {
-            width: 100%;
-            min-height: 100px;
-            padding: 8px;
-            font-family: monospace;
-            white-space: pre;
-            border: 1px solid var(--divider-color, #e0e0e0);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            width: 100%;
-        }
-
-        .section-header h3 {
-            margin: 0;
-        }
-
-        .section-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .section-actions button {
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            background: transparent;
-            border: 0;
-        }
-
-        .section-actions button:hover {
-            background-color: var(--secondary-background-color);
-        }
-
-        .list-item-wrapper {
-            display: flex;
-            align-items: center;
-            width: 100%;
-            gap: 8px;
-            box-sizing: border-box;
-        }
-
-        .list-item-wrapper .list-item {
-            flex: 1;
-            min-width: 0;
         }
 
         .item-actions {
@@ -1396,6 +1621,41 @@ class LgRemoteControlEditor extends LitElement {
             background-color: var(--secondary-background-color);
         }
 
+        /* Form and Radio Group Styles */
+        .form-group {
+            margin-bottom: 24px;
+            width: 100%;
+        }
+
+        .form-group-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--primary-text-color);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            padding: 8px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            background: var(--secondary-background-color, #f5f5f5);
+            flex-wrap: wrap;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .radio-group input[type="radio"] {
+            margin: 0;
+        }
+
+        /* Tab Navigation Styles */
         .tab-navigation {
             display: flex;
             gap: 8px;
@@ -1430,6 +1690,74 @@ class LgRemoteControlEditor extends LitElement {
         .tab-button ha-icon {
             width: 20px;
             height: 20px;
+        }
+
+        /* Section Header Styles */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            width: 100%;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-actions button {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: transparent;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .section-actions button:hover {
+            background-color: var(--secondary-background-color);
+        }
+
+        /* Expansion Panel Styles */
+        ha-expansion-panel {
+            --expansion-panel-summary-padding: 0 16px;
+        }
+
+        ha-expansion-panel[open] {
+            margin-bottom: 16px;
+        }
+
+        /* Textarea Styles */
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 8px;
+            font-family: monospace;
+            white-space: pre;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: var(--card-background-color);
+            color: var(--primary-text-color);
+        }
+
+        /* Link Styles */
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
         }
     `;
   }
