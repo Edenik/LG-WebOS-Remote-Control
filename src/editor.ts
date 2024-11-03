@@ -945,7 +945,7 @@ class LgRemoteControlEditor extends LitElement {
         </div>
       `)}
     </div>
-  `;
+    `;
   }
 
   private renderAddButton(type: "sources" | "shortcuts" | "scripts", title: string, text?: string) {
@@ -1017,10 +1017,8 @@ class LgRemoteControlEditor extends LitElement {
 
   private renderButtonItem(button: Button, index: number, identifier: "sources" | "scripts" | "shortcuts") {
     return html`
-      <div 
-        class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}"
-        @click=${() => this.handleItemSelect(button, index, identifier)}
-      >
+      <div class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}"
+           @click=${() => this.handleItemSelect(button, index, identifier)}>
         <div class="item-preview">
           ${button.icon ? html`<ha-icon icon="${button.icon}"></ha-icon>` : ''}
           ${button.img ? html`<img src="${button.img}" alt="${button.tooltip || ''}" />` : ''}
@@ -1558,8 +1556,19 @@ class LgRemoteControlEditor extends LitElement {
             padding-right: 4px;
         }
 
+        /* Updated List Item Styles */
+        .list-item-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            padding-right: 8px;
+        }
+
         .list-item {
             flex: 1;
+            width: 100%;
             min-width: 0;
             padding: 8px;
             cursor: pointer;
@@ -1578,14 +1587,6 @@ class LgRemoteControlEditor extends LitElement {
         .list-item.selected {
             background-color: var(--primary-color);
             color: var(--text-primary-color);
-        }
-
-        .list-item-wrapper {
-            display: flex;
-            align-items: center;
-            width: 100%;
-            gap: 8px;
-            box-sizing: border-box;
         }
 
         .item-preview {
@@ -1636,24 +1637,36 @@ class LgRemoteControlEditor extends LitElement {
             text-overflow: ellipsis;
         }
 
+        /* Updated Action Button Styles */
         .item-actions {
-            display: flex;
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
             gap: 4px;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            padding: 0 8px;
-            flex-shrink: 0;
+            padding: 4px;
+            background: var(--card-background-color);
+            border-radius: 4px;
+            box-shadow: var(--ha-card-box-shadow, 0 2px 2px 0 rgba(0, 0, 0, 0.14));
+            z-index: 1;
         }
 
         .list-item-wrapper:hover .item-actions {
-            opacity: 1;
+            display: flex;
+        }
+
+        .list-item.selected ~ .item-actions {
+            display: flex;
         }
 
         .item-actions ha-icon {
-            padding: 4px;
+            padding: 6px;
             border-radius: 4px;
             cursor: pointer;
             color: var(--primary-text-color);
+            background: var(--card-background-color);
+            transition: background-color 0.2s;
         }
 
         .item-actions ha-icon.trash {
@@ -1773,6 +1786,7 @@ class LgRemoteControlEditor extends LitElement {
             display: flex;
             align-items: center;
             gap: 4px;
+            transition: background-color 0.2s;
         }
 
         .section-actions button:hover {
@@ -1782,6 +1796,8 @@ class LgRemoteControlEditor extends LitElement {
         /* Expansion Panel Styles */
         ha-expansion-panel {
             --expansion-panel-summary-padding: 0 16px;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         ha-expansion-panel[open] {
@@ -1810,6 +1826,39 @@ class LgRemoteControlEditor extends LitElement {
 
         a:hover {
             text-decoration: underline;
+        }
+
+        /* Additional utility styles */
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--primary-color);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     `;
   }
