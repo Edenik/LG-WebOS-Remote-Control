@@ -498,6 +498,7 @@ class LgRemoteControlEditor extends LitElement {
       this._activeTab = 'shortcuts';
     } else {
       this._activeTab = 'buttons';
+      this._selectedButtonType = type === "sources" ? "sources" : "scripts";
     }
 
     newConfig[type].push(newButton);
@@ -522,8 +523,59 @@ class LgRemoteControlEditor extends LitElement {
 
   private handleButtonTypeChange(ev: Event) {
     const target = ev.target as HTMLInputElement;
-    this._selectedButtonType = target.value as ButtonType;
+    const newType = target.value as ButtonType;
+
+    if (!this._selectedItem) return;
+    const { button, index, type: oldType } = this._selectedItem;
+
+    // Only proceed if the type actually changed
+    if (newType === this._selectedButtonType) return;
+
+    const newConfig = structuredClone(this._config);
+
+    // Remove button from old array
+    if (newConfig[oldType] && index !== -1) {
+      newConfig[oldType].splice(index, 1);
+    }
+
+    // Initialize new array if it doesn't exist
+    if (!newConfig[newType]) {
+      newConfig[newType] = [];
+    }
+
+    // Create new button object with preserved properties
+    const newButton: Button = {
+      tooltip: button.tooltip,
+      color: button.color,
+      text_color: button.text_color,
+    };
+
+    // Copy icon-related properties
+    if (button.svg) newButton.svg = button.svg;
+    if (button.icon) newButton.icon = button.icon;
+    if (button.img) newButton.img = button.img;
+
+    // Add the button to the new array
+    const newIndex = newConfig[newType].length;
+    newConfig[newType].push(newButton);
+
+    // Update selected item
+    this._selectedItem = {
+      button: newButton,
+      index: newIndex,
+      type: newType
+    };
+
+    this._selectedButtonType = newType;
+    this._config = newConfig;
     this.requestUpdate();
+
+    // Dispatch the config change event
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private handleBack() {
