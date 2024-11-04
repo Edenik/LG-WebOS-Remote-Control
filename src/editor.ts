@@ -56,7 +56,7 @@ class LgRemoteControlEditor extends LitElement {
   private _activeTab: ButtonType = ButtonType.buttons;
   private _isAddingNew: boolean = false;
   private _isFormDirty: boolean = false;
-  private _selectedIconType: IconType = IconType.svg;
+  private _selectedIconType: IconType = IconType.mdi;
 
   static get properties() {
     return {
@@ -491,7 +491,8 @@ class LgRemoteControlEditor extends LitElement {
     if (!Array.isArray(newConfig.shortcuts)) newConfig.shortcuts = [];
 
     const newButton: ButtonConfig = {
-      tooltip: `New ${type === ButtonType.buttons ? "Button" : "Shortcut"}`,
+      name: "",
+      tooltip: `New ${capitalizeFirstLetter(pluralToSingular(type))}`,
       action: ButtonAction.source,
       text: '',
       data: {}
@@ -529,7 +530,7 @@ class LgRemoteControlEditor extends LitElement {
     }));
   }
 
-  private handleButtonTypeChange(ev: Event, button: ButtonConfig) {
+  private handleButtonActionChange(ev: Event, button: ButtonConfig) {
     const target = ev.target as HTMLInputElement;
     const newAction = target.value as ButtonAction;
 
@@ -650,34 +651,6 @@ class LgRemoteControlEditor extends LitElement {
     return this.hass.states[this._config.entity].attributes.source_list || [];
   }
 
-  private handleSourceSelect(ev: Event) {
-    const target = ev.target as HTMLSelectElement;
-
-    // Update both text and tooltip with the source name
-    const sourceName = target.value;
-    const newConfig = structuredClone(this._config);
-    const { type, index } = this._selectedItem!;
-
-    if (newConfig[type] && index !== -1) {
-      newConfig[type][index].text = sourceName;
-      newConfig[type][index].tooltip = sourceName;
-
-      this._selectedItem = {
-        ...this._selectedItem!,
-        button: newConfig[type][index]
-      };
-
-      this._config = newConfig;
-      this.requestUpdate();
-
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: newConfig },
-        bubbles: true,
-        composed: true,
-      }));
-    }
-  }
-
   private getScenesList(): Array<{ id: string; name: string }> {
     if (!this.hass) return [];
 
@@ -701,8 +674,6 @@ class LgRemoteControlEditor extends LitElement {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
-
-
 
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
@@ -735,40 +706,51 @@ class LgRemoteControlEditor extends LitElement {
       </div>
       
       <div class="editor-content">
-        <!-- Type Selection -->
-        <div class="form-group">
-          <label class="form-group-label">Button Type:</label>
-          <div class="radio-group">
-            ${Object.values(ButtonAction).map(action => html`
-              <label>
-                <input type="radio" 
-                  name="buttonType" 
-                  value=${action}
-                  ?checked=${button.action === action}
-                  @change=${(e: Event) => this.handleButtonTypeChange(e, button)}
-                >
-                ${capitalizeFirstLetter(pluralToSingular(action))}
-              </label>
-            `)}
-          </div>
+        <!-- Name fields -->
+        <div class="field-group">
+          <label>${capitalizeFirstLetter(pluralToSingular(type))} Name:</label>
+          <input 
+            type="name" 
+            name="name" 
+            class="input-field"
+            .value=${button.name || ''} 
+            @change=${this.handleItemUpdate}
+          />
         </div>
-  
-        <!-- Action Selection based on type -->
-        ${this.renderActionSelection(button)}
-  
+
+        <!-- Action Selection -->
+        ${this.renderButtonActionSelection(button, type)}
+
+        <!-- Text field -->
+        <div class="field-group">
+          <label>Text:</label>
+          <input 
+            type="text" 
+            name="text" 
+            class="input-field"
+            .value=${button.text || ''} 
+            @change=${this.handleItemUpdate}
+            placeholder="Button text"
+          />
+        </div>
+
+        <!-- Tooltip field -->
+        <div class="field-group">
+          <label>Tooltip:</label>
+          <input 
+            type="text" 
+            name="tooltip" 
+            class="input-field"
+            .value=${button.tooltip || ''} 
+            @change=${this.handleItemUpdate}
+            placeholder="Hover text"
+          />
+        </div>
+
         <!-- Icon Selection -->
         <div class="form-group">
           <label class="form-group-label">Icon Type:</label>
           <div class="radio-group">
-            <label>
-              <input type="radio" 
-                name="iconType" 
-                value=${IconType.svg}
-                ?checked=${this._selectedIconType === IconType.svg}
-                @change=${this.handleIconTypeChange}
-              >
-              SVG URL
-            </label>
             <label>
               <input type="radio" 
                 name="iconType" 
@@ -777,6 +759,15 @@ class LgRemoteControlEditor extends LitElement {
                 @change=${this.handleIconTypeChange}
               >
               MDI Icon
+            </label>
+            <label>
+              <input type="radio" 
+                name="iconType" 
+                value=${IconType.svg}
+                ?checked=${this._selectedIconType === IconType.svg}
+                @change=${this.handleIconTypeChange}
+              >
+              SVG URL
             </label>
             <label>
               <input type="radio" 
@@ -824,11 +815,7 @@ class LgRemoteControlEditor extends LitElement {
                 ${getMdiIconsList().map(icon => html`
                   <div 
                     class="icon-choice ${button.icon === icon.id ? 'selected' : ''}"
-                    @click=${() => {
-          const fakeEvent = { target: { name: 'icon', value: icon.id } };
-          this.handleItemUpdate(fakeEvent as any);
-        }}
-                  >
+                    @click=${() => { this.handleItemUpdate({ target: { name: 'icon', value: icon.id } } as any); }}>
                     <ha-icon icon="${icon.id}"></ha-icon>
                     <span class="icon-label">${icon.name}</span>
                   </div>
@@ -853,19 +840,6 @@ class LgRemoteControlEditor extends LitElement {
             ` : ''}
           </div>
         ` : ''}
-  
-        <!-- Text fields -->
-        <div class="field-group">
-          <label>Display Text:</label>
-          <input 
-            type="text" 
-            name="text" 
-            class="input-field"
-            .value=${button.text || ''} 
-            @change=${this.handleItemUpdate}
-            placeholder="Button text"
-          />
-        </div>
   
         <!-- Color inputs section -->
         <div class="form-group">
@@ -915,18 +889,6 @@ class LgRemoteControlEditor extends LitElement {
       }
           </div>
         </div>
-
-        <div class="field-group">
-          <label>Tooltip:</label>
-          <input 
-            type="text" 
-            name="tooltip" 
-            class="input-field"
-            .value=${button.tooltip || ''} 
-            @change=${this.handleItemUpdate}
-            placeholder="Hover text"
-          />
-        </div>
       </div>
     `;
   }
@@ -967,7 +929,6 @@ class LgRemoteControlEditor extends LitElement {
 
     if (newConfig[type] && index !== -1) {
       const button = newConfig[type][index];
-      const [prefix, id] = value.split('.');
 
       // Clear previous action data
       delete button.script_id;
@@ -980,21 +941,20 @@ class LgRemoteControlEditor extends LitElement {
       switch (button.action) {
         case ButtonAction.source:
           button.name = value;
-          button.tooltip = value;
-          button.text = value; // Also update text for source
+          button.tooltip = `Choose source: ${value}`;
           break;
         case ButtonAction.script:
           button.script_id = value;
           button.data = {};
-          button.tooltip = this.getScriptServices()[value]?.name || value;
+          button.tooltip = `Run script: ${this.getScriptServices()[value.replace("script.", "")]?.name || value}`;
           break;
         case ButtonAction.scene:
           button.scene_id = value;
-          button.tooltip = this.hass.states[`scene.${value}`]?.attributes.friendly_name || value;
+          button.tooltip = `Run scene: ${this.hass.states[value]?.attributes.friendly_name || value}`;
           break;
         case ButtonAction.automation:
           button.automation_id = value;
-          button.tooltip = this.hass.states[`automation.${value}`]?.attributes.friendly_name || value;
+          button.tooltip = `Run automation: ${this.hass.states[value]?.attributes.friendly_name || value}`;
           break;
       }
 
@@ -1016,8 +976,14 @@ class LgRemoteControlEditor extends LitElement {
     }
   }
 
+  private fixSelectionValue(action: ButtonAction, value: string) {
+    if (!value) return value;
+    if (action !== ButtonAction.source && !value.startsWith(action)) return `${action}.${value}`;
+    return `${value}`;
+  }
+
   private renderActionSelection(button: ButtonConfig): TemplateResult {
-    let options: Array<{ value: string; label: string; selected: boolean }> = [];
+    let options: Array<{ value: string; label: string; }> = [];
     let currentValue = '';
 
     switch (button.action) {
@@ -1025,36 +991,43 @@ class LgRemoteControlEditor extends LitElement {
         options = this.getSourceList().map(source => ({
           value: source,
           label: source,
-          selected: button.name === source
         }));
         currentValue = button.name || '';
         break;
 
       case ButtonAction.script:
-        options = this.getScriptsList().map(script => ({
-          value: `script.${script.id}`,
-          label: script.name,
-          selected: button.script_id === script.id
-        }));
-        currentValue = button.script_id ? `script.${button.script_id}` : '';
+        const scriptValue = button.script_id ? this.fixSelectionValue(ButtonAction.script, button.script_id) : '';
+        options = this.getScriptsList().map(script => {
+          const fullValue = this.fixSelectionValue(ButtonAction.script, script.id);
+          return {
+            value: fullValue,
+            label: script.name,
+          };
+        });
+        currentValue = scriptValue;
         break;
 
       case ButtonAction.scene:
-        options = this.getScenesList().map(scene => ({
-          value: `scene.${scene.id}`,
-          label: scene.name,
-          selected: button.scene_id === scene.id
-        }));
-        currentValue = button.scene_id ? `scene.${button.scene_id}` : '';
+        const sceneValue = button.scene_id ? this.fixSelectionValue(ButtonAction.scene, button.scene_id) : '';
+        options = this.getScenesList().map(scene => {
+          const fullValue = this.fixSelectionValue(ButtonAction.scene, scene.id);
+          return {
+            value: fullValue,
+            label: scene.name,
+          };
+        });
+        currentValue = sceneValue;
         break;
 
       case ButtonAction.automation:
-        options = this.getAutomationsList().map(automation => ({
-          value: `automation.${automation.id}`,
-          label: automation.name,
-          selected: button.automation_id === automation.id
-        }));
-        currentValue = button.automation_id ? `automation.${button.automation_id}` : '';
+        const automationValue = button.automation_id ? this.fixSelectionValue(ButtonAction.automation, button.automation_id) : '';
+        options = this.getAutomationsList().map(automation => {
+          return {
+            value: this.fixSelectionValue(ButtonAction.automation, automation.id),
+            label: automation.name,
+          };
+        });
+        currentValue = automationValue;
         break;
     }
 
@@ -1068,12 +1041,11 @@ class LgRemoteControlEditor extends LitElement {
           @change=${this.handleActionSelect}
           .value=${currentValue}
         >
-          <option value="" ?selected=${!currentValue}>Select ${articleForAction} ${pluralToSingular(button.action)}</option>
+          <option value="" ?selected=${!Boolean(currentValue)}>Select ${articleForAction} ${pluralToSingular(button.action)}</option>
           ${options.map(option => html`
             <option 
               value="${option.value}"
-              ?selected=${option.selected}
-            >
+              ?selected=${currentValue === this.fixSelectionValue(button.action, option.value)}>
               ${option.label}
             </option>
           `)}
@@ -1084,10 +1056,10 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private renderTypeSelection(button: ButtonConfig): TemplateResult {
+  private renderButtonActionSelection(button: ButtonConfig, type: ButtonType): TemplateResult {
     return html`
       <div class="form-group">
-        <label class="form-group-label">Button Type:</label>
+        <label class="form-group-label">${capitalizeFirstLetter(pluralToSingular(type))} Action:</label>
         <div class="radio-group">
           ${Object.values(ButtonAction).map(action => html`
             <label>
@@ -1095,9 +1067,9 @@ class LgRemoteControlEditor extends LitElement {
                 name="buttonType" 
                 value=${action}
                 ?checked=${button.action === action}
-                @change=${(e: Event) => this.handleButtonTypeChange(e, button)}
+                @change=${(e: Event) => this.handleButtonActionChange(e, button)}
               >
-              ${action.charAt(0).toUpperCase() + action.slice(1)}
+                ${capitalizeFirstLetter(pluralToSingular(action))}
             </label>
           `)}
         </div>
@@ -1513,36 +1485,6 @@ class LgRemoteControlEditor extends LitElement {
       id,
       name: service.name || id
     })).sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  private handleScriptSelect(ev: Event) {
-    const target = ev.target as HTMLSelectElement;
-    if (!this._selectedItem) return;
-
-    const scriptId = target.value;
-    const newConfig = structuredClone(this._config);
-    const { type, index } = this._selectedItem;
-
-    if (newConfig[type] && index !== -1) {
-      // Update script_id and clear previous data
-      newConfig[type][index].script_id = scriptId;
-      newConfig[type][index].data = {};
-      newConfig[type][index].tooltip = this.getScriptServices()[scriptId]?.name || scriptId;
-
-      this._selectedItem = {
-        ...this._selectedItem,
-        button: newConfig[type][index]
-      };
-
-      this._config = newConfig;
-      this.requestUpdate();
-
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: newConfig },
-        bubbles: true,
-        composed: true,
-      }));
-    }
   }
 
   private renderScriptFields(scriptId: string, currentData: Record<string, any> = {}): TemplateResult | '' {

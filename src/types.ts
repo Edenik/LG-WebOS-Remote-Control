@@ -31,12 +31,13 @@ export interface ButtonConfig {
   svg?: string;
   text?: string;
   text_color?: string;
-  script_id?: string;
-  scene_id?: string;
-  automation_id?: string;
-  data?: Record<string, any>;
+  script_id?: string; // if action === script
+  data?: Record<string, any>; // if script_id included
+  scene_id?: string; // if action === scene
+  automation_id?: string; // if action === automation
+  source?: string; // if action === source
   action: ButtonAction;
-  name?: string;
+  name: string;
 };
 
 export enum ButtonAction {
