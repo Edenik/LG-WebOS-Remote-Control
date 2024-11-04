@@ -4,7 +4,7 @@ import { customElement } from "lit/decorators.js";
 
 import { EDITOR_CARD_TAG_NAME } from "./const";
 import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./types";
-import { getMediaPlayerEntitiesByPlatform } from "./utils";
+import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./utils";
 
 
 const avreceivers = {
@@ -53,7 +53,7 @@ class LgRemoteControlEditor extends LitElement {
   private _config: any;
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
-  private _activeTab: ButtonType = ButtonType.button;
+  private _activeTab: ButtonType = ButtonType.buttons;
   private _isAddingNew: boolean = false;
   private _isFormDirty: boolean = false;
   private _selectedIconType: IconType = IconType.svg;
@@ -491,26 +491,26 @@ class LgRemoteControlEditor extends LitElement {
     if (!Array.isArray(newConfig.shortcuts)) newConfig.shortcuts = [];
 
     const newButton: ButtonConfig = {
-      tooltip: `New ${type === ButtonType.button ? "Button" : "Shortcut"}`,
+      tooltip: `New ${type === ButtonType.buttons ? "Button" : "Shortcut"}`,
       action: ButtonAction.source,
       text: '',
       data: {}
     };
 
     // Add to the correct array
-    if (type === ButtonType.button) {
+    if (type === ButtonType.buttons) {
       newConfig.buttons.push(newButton);
       this._selectedItem = {
         button: newButton,
         index: newConfig.buttons.length - 1,
-        type: ButtonType.button
+        type: ButtonType.buttons
       };
     } else {
       newConfig.shortcuts.push(newButton);
       this._selectedItem = {
         button: newButton,
         index: newConfig.shortcuts.length - 1,
-        type: ButtonType.shortcut
+        type: ButtonType.shortcuts
       };
     }
 
@@ -529,8 +529,6 @@ class LgRemoteControlEditor extends LitElement {
     }));
   }
 
-
-
   private handleButtonTypeChange(ev: Event, button: ButtonConfig) {
     const target = ev.target as HTMLInputElement;
     const newAction = target.value as ButtonAction;
@@ -540,6 +538,7 @@ class LgRemoteControlEditor extends LitElement {
     const newConfig = structuredClone(this._config);
     const { type, index } = this._selectedItem!;
 
+    console.log({ target, newAction, newConfig, type, index, selectedItem: this._selectedItem })
     if (newConfig[type] && index !== -1) {
       // Clear action-specific fields
       const buttonToUpdate = newConfig[type][index];
@@ -555,14 +554,18 @@ class LgRemoteControlEditor extends LitElement {
       buttonToUpdate.action = newAction;
       buttonToUpdate.tooltip = `New ${newAction}`;
 
+      // Update selected item with new button configuration
       this._selectedItem = {
         ...this._selectedItem!,
         button: buttonToUpdate
       };
 
       this._config = newConfig;
+
+      // Force a re-render of the component
       this.requestUpdate();
 
+      // Dispatch config change event
       this.dispatchEvent(new CustomEvent("config-changed", {
         detail: { config: newConfig },
         bubbles: true,
@@ -590,7 +593,7 @@ class LgRemoteControlEditor extends LitElement {
     }
 
     // Preserve the current tab when going back
-    const currentTab = this._selectedItem?.type === ButtonType.shortcut ? ButtonType.shortcut : ButtonType.button;
+    const currentTab = this._selectedItem?.type === ButtonType.shortcuts ? ButtonType.shortcuts : ButtonType.buttons;
 
     this._isAddingNew = false;
     this._selectedItem = null;
@@ -604,7 +607,7 @@ class LgRemoteControlEditor extends LitElement {
     const newConfig = structuredClone(this._config);
 
     // Get the correct array based on the type
-    const items = type === ButtonType.shortcut ?
+    const items = type === ButtonType.shortcuts ?
       (newConfig.shortcuts || []) :
       (newConfig.buttons || []);
 
@@ -614,7 +617,7 @@ class LgRemoteControlEditor extends LitElement {
     items.splice(index, 1);
 
     // Update the correct array in config
-    if (type === ButtonType.shortcut) {
+    if (type === ButtonType.shortcuts) {
       newConfig.shortcuts = items;
     } else {
       newConfig.buttons = items;
@@ -699,6 +702,8 @@ class LgRemoteControlEditor extends LitElement {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+
+
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
     const { button, type } = this._selectedItem;
@@ -713,14 +718,19 @@ class LgRemoteControlEditor extends LitElement {
 
     return html`
       <div class="section-header">
-        <h3>${type === ButtonType.shortcut ? 'Add Shortcut' : 'Add Button'}</h3>
+        <h3>${`Add ${pluralToSingular(type)}`}</h3>
         <div class="section-actions">
           <button @click=${() => {
         this.handleBack();
-        this._activeTab = type === ButtonType.shortcut ? ButtonType.shortcut : ButtonType.button;
+        this._activeTab = type;
       }}>
-            <ha-icon icon="mdi:arrow-left"></ha-icon>
+            <ha-icon icon="mdi:arrow-right"></ha-icon>
           </button>
+          ${this.renderTrashButton(() => {
+        this.handleDeleteItem(type, this._selectedItem!.index);
+        this.handleBack();
+        this._activeTab = type;
+      }, true)}
         </div>
       </div>
       
@@ -737,7 +747,7 @@ class LgRemoteControlEditor extends LitElement {
                   ?checked=${button.action === action}
                   @change=${(e: Event) => this.handleButtonTypeChange(e, button)}
                 >
-                ${action.charAt(0).toUpperCase() + action.slice(1)}
+                ${capitalizeFirstLetter(pluralToSingular(action))}
               </label>
             `)}
           </div>
@@ -843,35 +853,6 @@ class LgRemoteControlEditor extends LitElement {
           </div>
         ` : ''}
   
-        <!-- Color settings -->
-        ${this._selectedIconType !== IconType.none ? html`
-          <div class="field-group">
-            <label>Icon Color:</label>
-            <div class="color-input-container">
-              <input 
-                type="color" 
-                name="color"
-                class="color-picker"
-                .value=${button.color || '#000000'} 
-                @change=${this.handleItemUpdate}
-              />
-              <input 
-                type="text" 
-                name="color"
-                class="color-text input-field"
-                .value=${button.color || ''} 
-                @change=${this.handleItemUpdate}
-                placeholder="#000000"
-              />
-              ${button.color ? html`
-                <button class="clear-button" @click=${() => this.clearColor('color')}>
-                  <ha-icon icon="mdi:close"></ha-icon>
-                </button>
-              ` : ''}
-            </div>
-          </div>
-        ` : ''}
-  
         <!-- Text fields -->
         <div class="field-group">
           <label>Display Text:</label>
@@ -885,32 +866,55 @@ class LgRemoteControlEditor extends LitElement {
           />
         </div>
   
-        <div class="field-group">
-          <label>Text Color:</label>
-          <div class="color-input-container">
-            <input 
-              type="color" 
-              name="text_color"
-              class="color-picker"
-              .value=${button.text_color || '#000000'} 
-              @change=${this.handleItemUpdate}
-            />
-            <input 
-              type="text" 
-              name="text_color"
-              class="color-text input-field"
-              .value=${button.text_color || ''} 
-              @change=${this.handleItemUpdate}
-              placeholder="#000000"
-            />
-            ${button.text_color ? html`
-              <button class="clear-button" @click=${() => this.clearColor('text_color')}>
-                <ha-icon icon="mdi:close"></ha-icon>
-              </button>
-            ` : ''}
+        <!-- Color inputs section -->
+        <div class="form-group">
+        <label class="form-group-label">Colors:</label>
+
+        <div class="color-fields">
+            <!-- Text Color -->
+            <div class="color-field-row">
+              <label>Text:</label>
+              <div class="color-input-container">
+                <input 
+                  type="color" 
+                  name="text_color"
+                  class="color-picker"
+                  .value=${button.text_color || '#000000'} 
+                  @change=${this.handleItemUpdate}
+                />
+                ${button.text_color ? html`
+                  <button class="clear-button" @click=${() => this.clearColor('text_color')}>
+                    <ha-icon icon="mdi:close"></ha-icon>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Icon Color -->
+            ${[IconType.svg, IconType.mdi].includes(this._selectedIconType) ?
+        html`
+                  <div class="color-field-row">
+                    <label>Icon:</label>
+                    <div class="color-input-container">
+                      <input 
+                        type="color" 
+                        name="color"
+                        class="color-picker"
+                        .value=${button.color || '#000000'} 
+                        @change=${this.handleItemUpdate}
+                      />
+                      ${button.color ? html`
+                        <button class="clear-button" @click=${() => this.clearColor('color')}>
+                          <ha-icon icon="mdi:close"></ha-icon>
+                        </button>
+                      ` : ''}
+                    </div>
+                  </div>
+              ` : ""
+      }
           </div>
         </div>
-  
+
         <div class="field-group">
           <label>Tooltip:</label>
           <input 
@@ -922,19 +926,6 @@ class LgRemoteControlEditor extends LitElement {
             placeholder="Hover text"
           />
         </div>
-      </div>
-  
-      <!-- Footer Actions -->
-      <div class="editor-footer">
-        <button class="delete-button" @click=${() => {
-        if (confirm('Are you sure you want to delete this item?')) {
-          this.handleDeleteItem(type, this._selectedItem!.index);
-          this.handleBack();
-        }
-      }}>
-          <ha-icon icon="mdi:delete"></ha-icon>
-          Delete
-        </button>
       </div>
     `;
   }
@@ -989,19 +980,20 @@ class LgRemoteControlEditor extends LitElement {
         case ButtonAction.source:
           button.name = value;
           button.tooltip = value;
+          button.text = value; // Also update text for source
           break;
         case ButtonAction.script:
-          button.script_id = id;
+          button.script_id = value;
           button.data = {};
-          button.tooltip = this.getScriptServices()[id]?.name || id;
+          button.tooltip = this.getScriptServices()[value]?.name || value;
           break;
         case ButtonAction.scene:
-          button.scene_id = id;
-          button.tooltip = this.hass.states[`scene.${id}`]?.attributes.friendly_name || id;
+          button.scene_id = value;
+          button.tooltip = this.hass.states[`scene.${value}`]?.attributes.friendly_name || value;
           break;
         case ButtonAction.automation:
-          button.automation_id = id;
-          button.tooltip = this.hass.states[`automation.${id}`]?.attributes.friendly_name || id;
+          button.automation_id = value;
+          button.tooltip = this.hass.states[`automation.${value}`]?.attributes.friendly_name || value;
           break;
       }
 
@@ -1011,6 +1003,8 @@ class LgRemoteControlEditor extends LitElement {
       };
 
       this._config = newConfig;
+
+      // Force a re-render
       this.requestUpdate();
 
       this.dispatchEvent(new CustomEvent("config-changed", {
@@ -1022,13 +1016,6 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   private renderActionSelection(button: ButtonConfig): TemplateResult {
-    const actionLabel = {
-      [ButtonAction.source]: 'Source',
-      [ButtonAction.script]: 'Script',
-      [ButtonAction.scene]: 'Scene',
-      [ButtonAction.automation]: 'Automation'
-    }[button.action];
-
     let options: Array<{ value: string; label: string; selected: boolean }> = [];
     let currentValue = '';
 
@@ -1070,15 +1057,17 @@ class LgRemoteControlEditor extends LitElement {
         break;
     }
 
+    const articleForAction: string = button.action === ButtonAction.automation ? "an" : "a";
+
     return html`
       <div class="field-group">
-        <label>${actionLabel}:</label>
+        <label>${capitalizeFirstLetter(pluralToSingular(button.action))}:</label>
         <select 
           class="select-item"
           @change=${this.handleActionSelect}
           .value=${currentValue}
         >
-          <option value="" ?selected=${!currentValue}>Select a ${actionLabel.toLowerCase()}</option>
+          <option value="" ?selected=${!currentValue}>Select ${articleForAction} ${pluralToSingular(button.action)}</option>
           ${options.map(option => html`
             <option 
               value="${option.value}"
@@ -1120,7 +1109,7 @@ class LgRemoteControlEditor extends LitElement {
     const newConfig = structuredClone(this._config);
 
     // Get the correct array based on the type
-    const items = type === ButtonType.shortcut ?
+    const items = type === ButtonType.shortcuts ?
       (newConfig.shortcuts || []) :
       (newConfig.buttons || []);
 
@@ -1135,7 +1124,7 @@ class LgRemoteControlEditor extends LitElement {
     [items[newIndex], items[index]] = [items[index], items[newIndex]];
 
     // Update the correct array in config
-    if (type === ButtonType.shortcut) {
+    if (type === ButtonType.shortcuts) {
       newConfig.shortcuts = items;
     } else {
       newConfig.buttons = items;
@@ -1183,16 +1172,7 @@ class LgRemoteControlEditor extends LitElement {
         if (index < buttons.length - 1) this.handleReorder(type, index, "down");
       }}
               ></ha-icon>
-              <ha-icon 
-                  icon="mdi:delete"
-                  class="trash" 
-                  @click=${(e: Event) => {
-        e.stopPropagation();
-        if (confirm('Are you sure you want to delete this item?')) {
-          this.handleDeleteItem(type, index);
-        }
-      }}
-              ></ha-icon>
+              ${this.renderTrashButton(() => { this.handleDeleteItem(type, index); })}
             </div>
           </div>
         `)}
@@ -1200,14 +1180,36 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private renderAddButton(type: ButtonType, title: string, text?: string) {
+  private renderTrashButton(fn: Function, buttonWrapper: boolean = false) {
+    const onClick = (e: Event) => {
+      e.stopPropagation();
+      if (confirm('Are you sure you want to delete this item?')) {
+        fn()
+      }
+    };
+    const iconHtml = html`
+    <ha-icon 
+    icon="mdi:delete"
+    class="trash" 
+    @click=${!buttonWrapper && onClick}
+></ha-icon>
+`
+    if (buttonWrapper) {
+      return html`<button  @click=${onClick}>${iconHtml}</button>`
+    }
+
+    return iconHtml;
+  }
+
+  private renderAddButton(type: ButtonType) {
     return html`
           <button
-            title="${title}"
+            title="${`Add ${pluralToSingular(type)}`}"
             @click=${() => this.handleAddItem(type)}>
             <ha-icon icon="mdi:plus"></ha-icon> 
-            ${text}</button>`
+          </button>`
   }
+
   private renderButtonsAndShortcutsEditor() {
     // Ensure arrays exist and are initialized
     const buttons = Array.isArray(this._config.buttons) ? this._config.buttons : [];
@@ -1217,16 +1219,16 @@ class LgRemoteControlEditor extends LitElement {
       <div class="defined-buttons-list">
         <div class="tab-navigation">
           <button 
-            class="tab-button ${this._activeTab === ButtonType.button ? 'active' : ''}"
-            @click=${() => this.switchTab(ButtonType.button)}
+            class="tab-button ${this._activeTab === ButtonType.buttons ? 'active' : ''}"
+            @click=${() => this.switchTab(ButtonType.buttons)}
             ?disabled=${this._isAddingNew}
           >
             <ha-icon icon="mdi:remote"></ha-icon>
             Buttons
           </button>
           <button 
-            class="tab-button ${this._activeTab === ButtonType.shortcut ? 'active' : ''}"
-            @click=${() => this.switchTab(ButtonType.shortcut)}
+            class="tab-button ${this._activeTab === ButtonType.shortcuts ? 'active' : ''}"
+            @click=${() => this.switchTab(ButtonType.shortcuts)}
             ?disabled=${this._isAddingNew}
           >
             <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
@@ -1237,28 +1239,24 @@ class LgRemoteControlEditor extends LitElement {
         ${this._isAddingNew ?
         this.renderItemEditor() :
         html`
-            ${this._activeTab === ButtonType.button ? html`
+            ${this._activeTab === ButtonType.buttons ? html`
               <div class="section-header">
                 <h3>Buttons</h3>
                 <div class="section-actions">
-                  <button
-                    title="Add Button"
-                    @click=${() => this.handleAddItem(ButtonType.button)}>
-                    <ha-icon icon="mdi:plus"></ha-icon>
-                  </button>
+                  ${this.renderAddButton(ButtonType.buttons)}
                 </div>
               </div>
               <div class="list-container">
-                ${this.renderSection(ButtonType.button, buttons)}
+                ${this.renderSection(ButtonType.buttons, buttons)}
               </div>
             ` : html`
               <div class="section-header">
                 <h3>Shortcuts</h3>
                 <div class="section-actions">
-                  ${this.renderAddButton(ButtonType.shortcut, "Add Shortcut")}
+                  ${this.renderAddButton(ButtonType.shortcuts)}
                 </div>
               </div>
-              ${this.renderSection(ButtonType.shortcut, shortcuts)}
+              ${this.renderSection(ButtonType.shortcuts, shortcuts)}
             `}
           `}
       </div>
@@ -1490,7 +1488,7 @@ class LgRemoteControlEditor extends LitElement {
             ${this.renderAdvancedConfig()}
             
             <!-- Buttons and Shortcuts Editor -->
-            <ha-expansion-panel header="Buttons & Shortcuts">
+            <ha-expansion-panel header="Buttons & Shortcuts" expanded>
                 <div class="section-content">
                     ${this.renderButtonsAndShortcutsEditor()}
                 </div>
@@ -1682,6 +1680,67 @@ class LgRemoteControlEditor extends LitElement {
         }
 
         /* Color Configuration Styles */
+        .color-fields {
+          display: flex;
+          flex-direction: row;
+          gap: 8px;
+          margin-top: 4px;
+        }
+
+        .color-field-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .color-field-row label {
+          margin-right: 8px;
+          font-weight: normal;
+          color: var(--primary-text-color);
+        }
+
+        .color-input-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
+        }
+
+        .color-picker {
+          padding: 4px;
+          width: 50px;
+          height: 32px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .color-text {
+          flex: 1;
+        }
+
+        .clear-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          color: var(--primary-text-color);
+          opacity: 0.8;
+          transition: opacity 0.2s;
+        }
+
+        .clear-button:hover {
+          opacity: 1;
+        }
+
+        .clear-button ha-icon {
+          --mdc-icon-size: 18px;
+        }
+
         .color-config {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1758,20 +1817,76 @@ class LgRemoteControlEditor extends LitElement {
             flex: 1;
         }
 
+        /* Color Input Container Styles */
+        .color-input-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .color-picker {
+          padding: 4px;
+          width: 50px;
+          height: 32px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .color-text {
+          flex: 1;
+          max-width: calc(100% - 90px); /* Accounts for color picker and clear button */
+        }
+
         .clear-button {
-            padding: 8px;
-            border: none;
-            border-radius: 4px;
-            background: var(--error-color);
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          color: var(--primary-text-color);
+          opacity: 0.8;
+          transition: opacity 0.2s;
         }
 
         .clear-button:hover {
-            background: var(--error-color-darker, #c62828);
+          opacity: 1;
+        }
+
+        .clear-button ha-icon {
+          --mdc-icon-size: 18px;
+        }
+
+        /* Update the existing field-group styles */
+        .field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-bottom: 16px;
+          width: 100%;
+        }
+
+        /* Style specifically for color input groups */
+        .field-group label {
+          font-weight: 500;
+          margin-bottom: 4px;
+          color: var(--primary-text-color);
+        }
+
+        /* Make inputs consistent */
+        .input-field {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          background: var(--card-background-color, white);
+          color: var(--primary-text-color);
+          box-sizing: border-box;
+          height: 32px;
+          font-size: 0.9em;
         }
 
         /* Icon Styles */

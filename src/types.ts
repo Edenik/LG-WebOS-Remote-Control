@@ -47,8 +47,8 @@ export enum ButtonAction {
 }
 
 export enum ButtonType {
-  button = "button",
-  shortcut = "shortcut"
+  buttons = "buttons",
+  shortcuts = "shortcuts"
 }
 export interface SelectedButton {
   type: ButtonType,
