@@ -2,6 +2,7 @@
 import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 
+import { formatValidationErrors, validateButtonConfig, ValidationError } from "./buttonConfigurationValidator";
 import { EDITOR_CARD_TAG_NAME } from "./const";
 import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./types";
 import { capitalizeFirstLetter, getMdiIconsList, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./utils";
@@ -675,6 +676,11 @@ class LgRemoteControlEditor extends LitElement {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  private onTrashClick(type: ButtonType) {
+    this.handleDeleteItem(type, this._selectedItem!.index);
+    this.handleBack();
+    this._activeTab = type;
+  }
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
     const { button, type } = this._selectedItem;
@@ -687,21 +693,14 @@ class LgRemoteControlEditor extends LitElement {
       else this._selectedIconType = IconType.svg;
     }
 
+    const errors: ValidationError[] = validateButtonConfig(this._config[type][this._selectedItem.index], type)
     return html`
       <div class="section-header">
         <h3>${`Add ${pluralToSingular(type)}`}</h3>
         <div class="section-actions">
-          <button @click=${() => {
-        this.handleBack();
-        this._activeTab = type;
-      }}>
-            <ha-icon icon="mdi:arrow-right"></ha-icon>
-          </button>
-          ${this.renderTrashButton(() => {
-        this.handleDeleteItem(type, this._selectedItem!.index);
-        this.handleBack();
-        this._activeTab = type;
-      }, true)}
+          ${this.renderErrorsIcon(type, errors)}
+          ${this.renderTrashButton(() => { this.onTrashClick(type) }, true)}
+          ${this.renderBackButton(type)}
         </div>
       </div>
       
@@ -933,14 +932,14 @@ class LgRemoteControlEditor extends LitElement {
       // Clear previous action data
       delete button.script_id;
       delete button.scene_id;
+      delete button.source;
       delete button.automation_id;
-      delete button.name;
       delete button.data;
 
       // Set new data based on action type
       switch (button.action) {
         case ButtonAction.source:
-          button.name = value;
+          button.source = value;
           button.tooltip = `Choose source: ${value}`;
           break;
         case ButtonAction.script:
@@ -1153,6 +1152,14 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
+  private renderBackButton(type: ButtonType) {
+    return html`
+     <button title="Back" @click=${() => { this.handleBack(); this._activeTab = type; }}>
+        <ha-icon icon="mdi:arrow-right"></ha-icon>
+     </button>
+    `
+  }
+
   private renderTrashButton(fn: Function, buttonWrapper: boolean = false) {
     const onClick = (e: Event) => {
       e.stopPropagation();
@@ -1164,14 +1171,25 @@ class LgRemoteControlEditor extends LitElement {
     <ha-icon 
     icon="mdi:delete"
     class="trash" 
+    title="Delete"
     @click=${!buttonWrapper && onClick}
 ></ha-icon>
 `
     if (buttonWrapper) {
-      return html`<button  @click=${onClick}>${iconHtml}</button>`
+      return html`<button title="Delete" @click=${onClick}>${iconHtml}</button>`
     }
 
     return iconHtml;
+  }
+
+  private renderErrorsIcon(type: ButtonType, errors: ValidationError[]) {
+    return html`<button 
+                  @click=${() => { this.handleBack(); this._activeTab = type; }}
+                  ?disabled=${errors.length > 0}
+                  class="errors-indicator ${errors.length ? 'has-error' : 'no-error'}" 
+                  title="${formatValidationErrors(errors)}">
+                  ${errors.length ? errors.length : html`<ha-icon icon="mdi:check-bold"></ha-icon>`}
+                </button>`
   }
 
   private renderAddButton(type: ButtonType) {
@@ -2014,6 +2032,23 @@ class LgRemoteControlEditor extends LitElement {
 
         .list-item.selected ~ .item-actions {
             display: flex;
+        }
+
+        button.errors-indicator.has-error {
+            background-color: var(--error-color);
+        }
+
+        button.errors-indicator.no-error {
+            background-color: var(--success-color);
+        }
+
+        button.errors-indicator.no-error ha-icon {
+            color: white;
+        }
+
+        button.errors-indicator {
+            font-weight: bolder;
+            color: var(--primary-text-color);
         }
 
         .item-actions ha-icon {
