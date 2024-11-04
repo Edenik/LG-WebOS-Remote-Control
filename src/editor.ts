@@ -4,7 +4,7 @@ import { customElement } from "lit/decorators.js";
 
 import { EDITOR_CARD_TAG_NAME } from "./const";
 import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./types";
-import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./utils";
+import { capitalizeFirstLetter, getMdiIconsList, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./utils";
 
 
 const avreceivers = {
@@ -818,22 +818,23 @@ class LgRemoteControlEditor extends LitElement {
             ` : ''}
           </div>
         ` : this._selectedIconType === IconType.mdi ? html`
-          <div class="field-group">
-            <label>MDI Icon Name:</label>
-            <input 
-              type="text" 
-              name="icon" 
-              class="input-field"
-              .value=${button.icon || ''} 
-              @change=${this.handleItemUpdate}
-              placeholder="mdi:television"
-            />
-            ${button.icon ? html`
-              <div class="icon-preview">
-                <ha-icon icon="${button.icon}"></ha-icon>
+            <div class="field-group">
+              <label>MDI Icon:</label>
+              <div class="icons-grid">
+                ${getMdiIconsList().map(icon => html`
+                  <div 
+                    class="icon-choice ${button.icon === icon.id ? 'selected' : ''}"
+                    @click=${() => {
+          const fakeEvent = { target: { name: 'icon', value: icon.id } };
+          this.handleItemUpdate(fakeEvent as any);
+        }}
+                  >
+                    <ha-icon icon="${icon.id}"></ha-icon>
+                    <span class="icon-label">${icon.name}</span>
+                  </div>
+                `)}
               </div>
-            ` : ''}
-          </div>
+            </div>
         ` : this._selectedIconType === IconType.img ? html`
           <div class="field-group">
             <label>Image URL:</label>
@@ -1627,6 +1628,53 @@ class LgRemoteControlEditor extends LitElement {
 
         .section-content {
             padding: 16px;
+        }
+
+        .icons-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 8px;
+          margin-top: 8px;
+          max-height: 200px;
+          overflow-y: auto;
+          padding: 8px;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          background: var(--card-background-color);
+        }
+
+        .icon-choice {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .icon-choice:hover {
+          background-color: var(--secondary-background-color);
+        }
+
+        .icon-choice.selected {
+          background-color: var(--primary-color);
+          color: var(--text-primary-color);
+        }
+
+        .icon-choice.selected ha-icon {
+          color: var(--text-primary-color);
+        }
+
+        .icon-label {
+          font-size: 0.9em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .icon-select {
+          padding-right: 40px; /* Make room for the preview icon */
         }
 
         /* Field Styles */
