@@ -1,12 +1,13 @@
 import { HomeAssistant } from 'custom-card-helpers';
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./const";
+import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./common/const";
+import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./common/icons";
+import { renderButtonMedia, renderShape } from './common/mediaRenderer';
+import { globalStyles } from './common/styles';
+import { ButtonConfig, HomeAssistantFixed, WindowWithCards } from "./common/types";
+import { getMediaPlayerEntitiesByPlatform } from "./common/utils";
 import "./editor";
-import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, nowTvIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./icons";
-import { globalStyles } from './styles';
-import { ButtonConfig, HomeAssistantFixed, WindowWithCards } from "./types";
-import { getMediaPlayerEntitiesByPlatform } from "./utils";
 
 
 const line1 = '  LG WebOS Remote Control Card  ';
@@ -65,14 +66,6 @@ class LgRemoteControl extends LitElement {
     }
   }
 
-  static get iconMapping() {
-    return {
-      "disney": disneyIcon(),
-      "dazn": daznIcon(),
-      "nowtv": nowTvIcon(),
-      "amazon": amazonIcon(),
-    };
-  }
 
   static get properties() {
     return {
@@ -216,7 +209,7 @@ class LgRemoteControl extends LitElement {
   _renderDebugView(stateObj) {
     return html`
         <div class="grid-container-input">
-          ${this._renderShape("input")}
+          ${renderShape("input")}
           <button class="ripple bnt-input-back" @click=${() => this._show_debug = false}>
             <ha-icon icon="mdi:undo-variant"/>
           </button>
@@ -250,7 +243,7 @@ class LgRemoteControl extends LitElement {
   _renderInputsView(stateObj) {
     return html`
       <div class="grid-container-input">
-        ${this._renderShape("input")}
+        ${renderShape("input")}
         <button class="ripple bnt-input-back" @click=${() => this._show_inputs = false}>
           <ha-icon icon="mdi:undo-variant"/>
         </button>
@@ -281,7 +274,7 @@ class LgRemoteControl extends LitElement {
   _renderShortcutsView(stateObj) {
     return html`
           <div class="grid-container-input">
-            ${this._renderShape("input")}
+            ${renderShape("input")}
             <button class="ripple bnt-input-back" @click=${() => this._show_shortcuts = false}>
               <ha-icon icon="mdi:undo-variant"/>
             </button>
@@ -313,10 +306,7 @@ class LgRemoteControl extends LitElement {
           this._show_shortcuts = false;
         }}
         > 
-          ${shortcut.icon ? LgRemoteControl.getIcon(shortcut.icon, shortcut.color)
-          : shortcut.svg ? this._renderSvg(shortcut.svg, shortcut.color)
-            : shortcut.img ? this._renderImage(shortcut.img, shortcut.color) : ""}
-          ${shortcut.text ?? ""}
+          ${renderButtonMedia(shortcut)} ${shortcut.text ?? ""}
         </button>
       `;
     });
@@ -327,7 +317,7 @@ class LgRemoteControl extends LitElement {
   _renderSoundView(stateObj) {
     return html`
       <div class="grid-container-sound">
-        ${this._renderShape("sound")}
+        ${renderShape("sound")}
         <button class="bnt-sound-back ripple" @click=${() => this._show_sound_output = false}>
           <ha-icon icon="mdi:undo-variant"/>
         </button>
@@ -547,7 +537,7 @@ class LgRemoteControl extends LitElement {
   _renderDirectionPad(stateObj) {
     return html`
       <div class="grid-container-cursor">
-        ${this._renderShape("direction")}
+        ${renderShape("direction")}
         ${this._renderDirectionButtons(stateObj)}
       </div>
     `;
@@ -629,176 +619,16 @@ class LgRemoteControl extends LitElement {
     `;
   }
 
-  // Custom source button renderer
-  _renderCustomSourceButton(source) {
-    const willRenderText = this._willRenderText(source);
-    return html`
-      <button class="btn_source ripple ${willRenderText ? 'btn_text' : ''}" 
-              ${willRenderText ? `style="color:${source.color ?? ""};"` : ""}  
-              title="${source.tooltip ?? ''}" 
-              @click=${() => this._select_source(source.name)}>
-        ${source.icon ? LgRemoteControl.getIcon(source.icon, source.color)
-        : source.svg ? this._renderSvg(source.svg, source.color)
-          : source.img ? this._renderImage(source.img, source.color) : ""}
-           ${source.text ?? ""}
-      </button>
-    `;
-  }
-
-  // Custom buttons renderer
-  _renderCustomButtons() {
-    if (!this.config.buttons) return '';
-
-    return html`
-        ${(this.config.buttons as ButtonConfig[])
-        .map(button => this._renderCustomButton(button))}
-    `;
-  }
-
-  // SVG from URL renderer
-  _renderSvg(url: string, iconColor: string = undefined, width = 24, height = 24) {
-    // Fetch the SVG content synchronously
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", url, false);
-    xhr.send();
-
-    if (xhr.status !== 200) {
-      console.error("Failed to load SVG:", xhr.statusText);
-      return html``;
+  _handleButtonClick(button: ButtonConfig) {
+    if (button.action === 'source' && button.source) {
+      this._select_source(button.source);
+    } else if (button.action === 'script' && button.script_id) {
+      this._run_script(button.script_id, button.data);
+    } else if (button.action === 'scene' && button.scene_id) {
+      this._run_scene(button.scene_id, button.data);
+    } else if (button.action === 'automation' && button.automation_id) {
+      this._run_automation(button.automation_id, button.data);
     }
-
-    // Create a container to modify the SVG
-    const svgContainer = document.createElement("div");
-    svgContainer.innerHTML = xhr.responseText;
-
-    const svgElement = svgContainer.querySelector("svg");
-    if (!svgElement) {
-      console.error("Invalid SVG content");
-      return html``;
-    }
-
-    // Set SVG dimensions
-    svgElement.setAttribute("width", width.toString());
-    svgElement.setAttribute("height", height.toString());
-
-    // Remove style elements if icon color is defined
-    if (iconColor) {
-      const styleElements = svgElement.querySelectorAll('style');
-      styleElements.forEach(element => {
-        element.remove();
-      });
-
-      // Set the fill color for all paths in the SVG
-      svgElement.setAttribute("fill", iconColor);
-      const paths = svgElement.querySelectorAll('path');
-      paths.forEach(path => {
-        const currentFill = path.getAttribute('fill');
-        if (currentFill !== 'none' && currentFill !== 'transparent' && !(currentFill ?? "").toLowerCase().startsWith("#fff")) {
-          path.setAttribute('fill', iconColor);
-        }
-      });
-    }
-
-    // Remove the title element from the SVG
-    const titleElement = svgElement.querySelector('title');
-    if (titleElement) {
-      titleElement.remove();
-    }
-
-    // Return HTML with SVG
-    return html`
-        ${svgContainer.firstChild}
-    `;
-  }
-
-  // Images from URL renderer
-  _renderImage(url: string, overlayColor: string = undefined, width = 24, height = 24) {
-    // Create an image element
-    const imgElement = document.createElement("img");
-    imgElement.src = url;
-    imgElement.width = width;
-    imgElement.height = height;
-    imgElement.style.display = 'block'; // Ensure the image is block-level
-
-    // Create a container for the image
-    const container = document.createElement("div");
-    container.style.position = "relative";
-    container.style.width = `${width}px`;
-    container.style.height = `${height}px`;
-
-    // Append the image to the container
-    container.appendChild(imgElement);
-
-    // If an overlay color is provided, create a colored overlay
-    if (overlayColor) {
-      const overlay = document.createElement("div");
-      overlay.style.position = "absolute";
-      overlay.style.top = "0";
-      overlay.style.left = "0";
-      overlay.style.width = "100%";
-      overlay.style.height = "100%";
-      overlay.style.backgroundColor = overlayColor;
-      overlay.style.opacity = "0.5"; // Adjust opacity as needed
-      container.appendChild(overlay);
-    }
-
-    // Return HTML with the image
-    return html`
-      ${container}
-    `;
-  }
-
-  // Shape renderer - handles all decorative SVG shapes in the remote
-  _renderShape(type) {
-    // Shape configurations
-    const shapes = {
-      // Input shape - used for input selection menu
-      input: {
-        viewBox: "0 0 260 130",
-        path: "m 187 43 a 30 30 0 0 0 60 0 a 30 30 0 0 0 -60 0 " +
-          "M 148 12 a 30 30 0 0 1 30 30 a 40 40 0 0 0 40 40 " +
-          "a 30 30 0 0 1 30 30 v 18 h -236 v -88 a 30 30 0 0 1 30 -30",
-        className: "shape-input"
-      },
-      // Sound shape - used for sound output menu
-      sound: {
-        viewBox: "0 0 260 260",
-        path: "m 13 43 a 30 30 0 0 0 60 0 a 30 30 0 0 0 -60 0 " +
-          "M 130 12 h 88 a 30 30 0 0 1 30 30 v 188 a 30 30 0 0 1 -30 30 " +
-          "h -176 a 30 30 0 0 1 -30 -30 v -117 a 30 30 0 0 1 30 -30 " +
-          "a 40 40 0 0 0 41 -41 a 30 30 0 0 1 30 -30 z",
-        className: "shape-sound"
-      },
-      // Direction shape - used for direction pad
-      direction: {
-        viewBox: "0 0 80 79",
-        path: "m 30 15 a 10 10 0 0 1 20 0 a 15 15 0 0 0 15 15 " +
-          "a 10 10 0 0 1 0 20 a 15 15 0 0 0 -15 15 a 10 10 0 0 1 -20 0 " +
-          "a 15 15 0 0 0 -15 -15 a 10 10 0 0 1 0 -20 a 15 15 0 0 0 15 -15",
-        className: "shape"
-      }
-    };
-
-    // Return empty if invalid shape type
-    if (!shapes[type]) {
-      console.warn(`Invalid shape type: ${type}`);
-      return html``;
-    }
-
-    const { viewBox, path, className } = shapes[type];
-
-    return html`
-    <div class="${className}">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
-        <path 
-          d="${path}" 
-          fill="var(--remote-button-color)" 
-          stroke="#000000" 
-          stroke-width="0" 
-        />
-      </svg>
-    </div>
-  `;
   }
 
   // Custom button renderer - handles individual script/scene buttons
@@ -806,38 +636,20 @@ class LgRemoteControl extends LitElement {
     // Check if this should render as text instead of icon/image
     const willRenderText = this._willRenderText(button);
 
-    // Determine the content to display in the button
-    const buttonContent = button.icon
-      ? LgRemoteControl.getIcon(button.icon, button.color)
-      : button.svg
-        ? this._renderSvg(button.svg, button.color)
-        : button.img
-          ? this._renderImage(button.img, button.color)
-          : "";
-
     // Build style string if text rendering
     const styleString = willRenderText && button.text_color
       ? `color: ${button.text_color};`
       : '';
-
-    // Handle click based on button type
-    const handleClick = () => {
-      if (button.action === 'source' && button.name) {
-        this._select_source(button.name);
-      } else if (button.action === 'script' && button.script_id) {
-        this._run_script(button.script_id, button.data);
-      }
-    };
 
     return html`
       <button 
         class="btn_source ripple ${willRenderText ? 'btn_text' : ''}"
         style="${styleString}"
         title="${button.tooltip ?? ''}"
-        @click=${handleClick}
-        ?disabled=${button.action === 'script' && !button.script_id || button.action === 'source' && !button.name}
+        @click=${() => { this._handleButtonClick(button) }}
+        ?disabled=${button.action === 'script' && !button.script_id || button.action === 'source' && !button.source}
       >
-        ${buttonContent} ${button.text ?? ""}
+        ${renderButtonMedia(button)} ${button.text ?? ""}
       </button>
     `;
   }
@@ -1072,22 +884,25 @@ class LgRemoteControl extends LitElement {
     }
   }
 
+  _run_action(action: "script" | "automation" | "scene", actionId: string, data: Record<string, any> = {}) {
+    const domain = action;
+    const service = actionId;
+    const serviceData = { entity_id: `${domain}.${actionId}`, ...data };
+    this._debugLog(domain, service, serviceData);
+    this.hass.callService(domain, service, serviceData);
+  }
+
   _run_script(scriptId: string, data: Record<string, any> = {}) {
-    const domain = "script";
-    const service = scriptId;
-    const serviceData = { entity_id: `script.${scriptId}`, ...data };
-    this._debugLog(domain, service, serviceData);
-    this.hass.callService(domain, service, serviceData);
+    this._run_action("script", scriptId, data);
   }
 
-  _run_scene(sceneId: string) {
-    const domain = "scene";
-    const service = sceneId;
-    const serviceData = { entity_id: `scene.${sceneId}` };
-    this._debugLog(domain, service, serviceData);
-    this.hass.callService(domain, service, serviceData);
+  _run_scene(sceneId: string, data: Record<string, any> = {}) {
+    this._run_action("scene", sceneId, data);
   }
 
+  _run_automation(automationId: string, data: Record<string, any> = {}) {
+    this._run_action("automation", automationId, data);
+  }
 
   _select_source(source: string) {
     const domain = "media_player";
@@ -1142,11 +957,6 @@ class LgRemoteControl extends LitElement {
     );
   }
 
-  static getIcon(iconName: string, color: string = "black") {
-    return Object.keys(LgRemoteControl.iconMapping).includes(iconName)
-      ? LgRemoteControl.iconMapping[iconName]
-      : html`<ha-icon style="height: 70%; width: 70%; color:${color};" icon="${iconName}"/>`;
-  }
 
   static get styles() {
     return globalStyles

@@ -2,10 +2,12 @@
 import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 
-import { formatValidationErrors, validateButtonConfig, ValidationError } from "./buttonConfigurationValidator";
-import { EDITOR_CARD_TAG_NAME } from "./const";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./types";
-import { capitalizeFirstLetter, getMdiIconsList, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./utils";
+import { EDITOR_CARD_TAG_NAME } from "./common/const";
+import { getMdiIconsList } from "./common/icons";
+import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./common/types";
+import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
+import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
 
 const avreceivers = {
@@ -56,6 +58,7 @@ class LgRemoteControlEditor extends LitElement {
   private _selectedItem: SelectedButton | null = null;
   private _activeTab: ButtonType = ButtonType.buttons;
   private _isAddingNew: boolean = false;
+  private _isEditing: boolean = false;
   private _isFormDirty: boolean = false;
   private _selectedIconType: IconType = IconType.mdi;
 
@@ -67,6 +70,8 @@ class LgRemoteControlEditor extends LitElement {
       _activeTab: { type: String },
       _isAddingNew: { type: Boolean },
       _isFormDirty: { type: Boolean },
+      _selectedIconType: { type: String },
+      _isEditing: { type: Boolean },
     };
   }
 
@@ -411,7 +416,6 @@ class LgRemoteControlEditor extends LitElement {
     }
   }
 
-
   private handleIconTypeChange(ev: Event) {
     const target = ev.target as HTMLInputElement;
     this._selectedIconType = target.value as IconType;
@@ -449,6 +453,58 @@ class LgRemoteControlEditor extends LitElement {
     this.requestUpdate();
   }
 
+  private handleEdit(type: ButtonType, index: number) {
+    console.log(`Edit mode, type: ${type}, index: ${index}`)
+    // Set the selected item and display the edit form
+    const button = this._config[type][index];
+    this._selectedItem = { button, index, type };
+    this._isFormDirty = false;
+    this._activeTab = type;
+    this._isEditing = true;
+
+    console.log({ button, selected: this._selectedItem })
+    // Determine initial icon type
+    if (button.svg) this._selectedIconType = IconType.svg;
+    else if (button.icon) this._selectedIconType = IconType.mdi;
+    else if (button.img) this._selectedIconType = IconType.img;
+    else this._selectedIconType = IconType.none;
+
+    // Force update
+    this.requestUpdate();
+
+    // Dispatch config change event
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private handleSave() {
+    if (!this._selectedItem) return;
+
+    const { type, index } = this._selectedItem;
+    const newConfig = structuredClone(this._config);
+
+    // Update the item in the config
+    if (newConfig[type] && index !== -1) {
+      newConfig[type][index] = this._selectedItem.button;
+    }
+
+    this._config = newConfig;
+    this._isFormDirty = false;
+
+    // Dispatch config change event
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+
+    // Reset form state
+    this.handleBack();
+  }
+
   private handleItemUpdate(ev: Event) {
     this._isFormDirty = true;
     if (!this._selectedItem) return;
@@ -461,7 +517,17 @@ class LgRemoteControlEditor extends LitElement {
 
     if (newConfig[type] && index !== -1) {
       try {
-        newConfig[type][index][field] = value;
+        if (field.startsWith('data.')) {
+          // Handle nested data fields
+          const dataField = field.split('.')[1];
+          if (!newConfig[type][index].data) {
+            newConfig[type][index].data = {};
+          }
+          newConfig[type][index].data[dataField] = value;
+        } else {
+          newConfig[type][index][field] = value;
+        }
+
         this._selectedItem = {
           ...this._selectedItem,
           button: newConfig[type][index]
@@ -474,14 +540,17 @@ class LgRemoteControlEditor extends LitElement {
     this._config = newConfig;
     this.requestUpdate();
 
-    const event = new CustomEvent("config-changed", {
-      detail: { config: newConfig },
-      bubbles: true,
-      composed: true,
-    });
+    // Only dispatch config-changed event if we're in edit mode and not adding new
+    if (!this._isAddingNew) {
+      const event = new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      });
 
-    this.debugLog({ hass: this.hass, event, fn: "handleItemUpdate" })
-    this.dispatchEvent(event);
+      this.debugLog({ hass: this.hass, event, fn: "handleItemUpdate" })
+      this.dispatchEvent(event);
+    }
   }
 
   private handleAddItem(type: ButtonType) {
@@ -598,9 +667,11 @@ class LgRemoteControlEditor extends LitElement {
     const currentTab = this._selectedItem?.type === ButtonType.shortcuts ? ButtonType.shortcuts : ButtonType.buttons;
 
     this._isAddingNew = false;
+    this._isEditing = false;
     this._selectedItem = null;
     this._isFormDirty = false;
     this._activeTab = currentTab;
+    this._selectedIconType = IconType.mdi;
 
     this.requestUpdate();
   }
@@ -681,9 +752,14 @@ class LgRemoteControlEditor extends LitElement {
     this.handleBack();
     this._activeTab = type;
   }
+
   private renderItemEditor() {
     if (!this._selectedItem) return html``;
     const { button, type } = this._selectedItem;
+
+    // Determine if we're editing or adding
+    const isEditing = !this._isAddingNew;
+    const headerText = isEditing ? `Edit ${pluralToSingular(type)}` : `Add ${pluralToSingular(type)}`;
 
     // Determine initial icon type if not set
     if (!this._selectedIconType) {
@@ -694,11 +770,21 @@ class LgRemoteControlEditor extends LitElement {
     }
 
     const errors: ValidationError[] = validateButtonConfig(this._config[type][this._selectedItem.index], type)
+
     return html`
       <div class="section-header">
-        <h3>${`Add ${pluralToSingular(type)}`}</h3>
+        <h3>${headerText}</h3>
         <div class="section-actions">
           ${this.renderErrorsIcon(type, errors)}
+          ${isEditing ? html`
+            <button 
+              @click=${this.handleSave}
+              ?disabled=${errors.length > 0}
+              title="Save changes">
+              <ha-icon icon="mdi:content-save"></ha-icon>
+              Save
+            </button>
+          ` : ''}
           ${this.renderTrashButton(() => { this.onTrashClick(type) }, true)}
           ${this.renderBackButton(type)}
         </div>
@@ -792,7 +878,7 @@ class LgRemoteControlEditor extends LitElement {
         <!-- Icon URL/Name input based on selected type -->
         ${this._selectedIconType === IconType.svg ? html`
           <div class="field-group">
-            <label>SVG URL:</label>
+            <label>SVG URL:  ${button.svg ? renderSvg(button.svg, button.color) : ""}</label>
             <input 
               type="text" 
               name="svg" 
@@ -801,43 +887,34 @@ class LgRemoteControlEditor extends LitElement {
               @change=${this.handleItemUpdate}
               placeholder="https://example.com/icon.svg"
             />
-            ${button.svg ? html`
-              <div class="icon-preview">
-                <img src="${button.svg}" alt="Icon preview" />
-              </div>
-            ` : ''}
           </div>
         ` : this._selectedIconType === IconType.mdi ? html`
             <div class="field-group">
-              <label>MDI Icon:</label>
-              <div class="icons-grid">
-                ${getMdiIconsList().map(icon => html`
+              <label>MDI Icon: ${button.icon ? renderIcon(button.icon, button.color) : ""}</label>
+          <div class="icons-grid">
+            ${getMdiIconsList().map(icon => html`
                   <div 
                     class="icon-choice ${button.icon === icon.id ? 'selected' : ''}"
                     @click=${() => { this.handleItemUpdate({ target: { name: 'icon', value: icon.id } } as any); }}>
                     <ha-icon icon="${icon.id}"></ha-icon>
                     <span class="icon-label">${icon.name}</span>
                   </div>
-                `)}
-              </div>
-            </div>
+                `)
+        }
+    </div>
+      </div>
         ` : this._selectedIconType === IconType.img ? html`
-          <div class="field-group">
-            <label>Image URL:</label>
-            <input 
-              type="text" 
-              name="img" 
-              class="input-field"
-              .value=${button.img || ''} 
-              @change=${this.handleItemUpdate}
-              placeholder="https://example.com/image.png"
-            />
-            ${button.img ? html`
-              <div class="icon-preview">
-                <img src="${button.img}" alt="Icon preview" />
-              </div>
-            ` : ''}
-          </div>
+      < div class="field-group" >
+        <label>Image URL: ${button.img ? renderImage(button.img, button.color) : ''} </label>
+          < input
+    type = "text"
+    name = "img"
+    class="input-field"
+      .value = ${button.img || ''}
+    @change=${this.handleItemUpdate}
+    placeholder = "https://example.com/image.png"
+      />
+      </div>
         ` : ''}
   
         <!-- Color inputs section -->
@@ -991,7 +1068,7 @@ class LgRemoteControlEditor extends LitElement {
           value: source,
           label: source,
         }));
-        currentValue = button.name || '';
+        currentValue = button.source || '';
         break;
 
       case ButtonAction.script:
@@ -1129,21 +1206,24 @@ class LgRemoteControlEditor extends LitElement {
             ${this.renderButtonItem(button, index, type)}
             <div class="item-actions">
               <ha-icon 
-                  icon="mdi:arrow-up"
-                  class="reorder ${index === 0 ? 'disabled' : ''}"
-                  @click=${(e: Event) => {
+                icon="mdi:arrow-up"
+                class="reorder ${index === 0 ? 'disabled' : ''}"
+                @click=${(e: Event) => {
         e.stopPropagation();
         if (index > 0) this.handleReorder(type, index, "up");
-      }}
-              ></ha-icon>
+      }}>
+              </ha-icon>
               <ha-icon 
-                  icon="mdi:arrow-down"
-                  class="reorder ${index === buttons.length - 1 ? 'disabled' : ''}"
-                  @click=${(e: Event) => {
+                icon="mdi:arrow-down"
+                class="reorder ${index === buttons.length - 1 ? 'disabled' : ''}"
+                @click=${(e: Event) => {
         e.stopPropagation();
         if (index < buttons.length - 1) this.handleReorder(type, index, "down");
-      }}
-              ></ha-icon>
+      }}>
+              </ha-icon>
+              <ha-icon icon="mdi:pencil"
+                @click=${(e: Event) => { this.handleEdit(type, index) }}>
+              </ha-icon>
               ${this.renderTrashButton(() => { this.handleDeleteItem(type, index); })}
             </div>
           </div>
@@ -1156,8 +1236,7 @@ class LgRemoteControlEditor extends LitElement {
     return html`
      <button title="Back" @click=${() => { this.handleBack(); this._activeTab = type; }}>
         <ha-icon icon="mdi:arrow-right"></ha-icon>
-     </button>
-    `
+     </button>`
   }
 
   private renderTrashButton(fn: Function, buttonWrapper: boolean = false) {
@@ -1212,7 +1291,7 @@ class LgRemoteControlEditor extends LitElement {
           <button 
             class="tab-button ${this._activeTab === ButtonType.buttons ? 'active' : ''}"
             @click=${() => this.switchTab(ButtonType.buttons)}
-            ?disabled=${this._isAddingNew}
+            ?disabled=${this._isAddingNew || this._isEditing}
           >
             <ha-icon icon="mdi:remote"></ha-icon>
             Buttons
@@ -1220,14 +1299,14 @@ class LgRemoteControlEditor extends LitElement {
           <button 
             class="tab-button ${this._activeTab === ButtonType.shortcuts ? 'active' : ''}"
             @click=${() => this.switchTab(ButtonType.shortcuts)}
-            ?disabled=${this._isAddingNew}
+            ?disabled=${this._isAddingNew || this._isEditing}
           >
             <ha-icon icon="mdi:gesture-tap-button"></ha-icon>
             Shortcuts
           </button>
         </div>
   
-        ${this._isAddingNew ?
+        ${(this._isAddingNew || this._isEditing) ?
         this.renderItemEditor() :
         html`
             ${this._activeTab === ButtonType.buttons ? html`
@@ -1254,30 +1333,26 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-
   private renderButtonItem(button: ButtonConfig, index: number, identifier: ButtonType) {
     return html`
-      <div class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}"
-           @click=${() => this.handleItemSelect(button, index, identifier)}>
+      <div title="${button.tooltip}" class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}">
         <div class="item-preview">
-          ${button.icon ? html`<ha-icon icon="${button.icon}"></ha-icon>` : ''}
-          ${button.img ? html`<img src="${button.img}" alt="${button.tooltip || ''}" />` : ''}
-          ${button.svg ? html`<img src="${button.svg}" alt="${button.tooltip || ''}" />` : ''}
+          ${renderButtonMedia(button)}
         </div>
         <div class="item-info">
-          <span>${button.tooltip || 'Unnamed Item'}</span>
-          ${button.data ? html`
-            <span class="item-data">
-              ${Object.entries(button.data).map(([key, value]) => html`
-                <span class="data-item">${key}: ${value}</span>
-              `)}
-            </span>
+          <span>${button.name || 'Unnamed Item'}</span>
+          <span class="item-data">
+              <span class="data-item">${capitalizeFirstLetter(button.action)}: ${button.action === "source" ? button.source : button[`${button.action}_id`]}</span>
+              ${button.data ? html`
+                ${Object.entries(button.data).map(([key, value]) => html`
+                    <span class="data-item">${key}: ${value}</span>
+                  `)}
           ` : ''}
+          </span>
         </div>
       </div>
     `;
   }
-
 
   private renderBasicConfig() {
     return html`
