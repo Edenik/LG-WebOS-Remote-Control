@@ -2,55 +2,13 @@
 import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 
-import { EDITOR_CARD_TAG_NAME } from "./common/const";
+import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, SelectedButton } from "./common/types";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, SelectedButton } from "./common/types";
 import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
-
-const avreceivers = {
-  "anthemav": {
-    "friendlyName": "Anthem A/V Receivers",
-  },
-  "arcam_fmj": {
-    "friendlyName": "Arcam FMJ Receivers",
-  },
-  "denonavr": {
-    "friendlyName": "Denon, Marantz A/V Receivers",
-  },
-  "heos": {
-    "friendlyName": "Denon heos A/V Receivers",
-  },
-  "harman_kardon_avr": {
-    "friendlyName": "Harman Kardon AVR",
-  },
-  "monoprice": {
-    "friendlyName": "Monoprice 6-Zone Amplifier",
-  },
-  "onkyo": {
-    "friendlyName": "Onkyo A/V Receivers",
-  },
-  "sonos": {
-    "friendlyName": "Sonos",
-  },
-  "pws66i": {
-    "friendlyName": "Soundavo WS66i 6-Zone Amplifier",
-  },
-  "yamaha": {
-    "friendlyName": "Yamaha Network Receivers",
-  },
-}
-
-const AvReceiverdevicemap = new Map(Object.entries(avreceivers));
-
-enum IconType {
-  svg = "svg",
-  mdi = "mdi",
-  img = "img",
-  none = "none"
-}
 @customElement(EDITOR_CARD_TAG_NAME)
 class LgRemoteControlEditor extends LitElement {
   private _config: any;
@@ -204,105 +162,6 @@ class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  getLgTvEntityDropdown(optionValue) {
-    let mediaPlayerEntities = getMediaPlayerEntitiesByPlatform(this.hass, 'webostv');
-    let heading = 'LG Media Player Entity';
-    let blankEntity = html``;
-    if (this._config.tventity == '' || !(mediaPlayerEntities).includes(optionValue)) {
-      blankEntity = html`<option value="" selected> - - - - </option> `;
-    }
-    return html`
-            ${heading}:<br>
-            <select name="entity" id="entity" class="select-item" .value="${optionValue}"
-                    @focusout=${this.configChanged}
-                    @change=${this.configChanged} >
-                ${blankEntity}
-                ${mediaPlayerEntities.map((eid) => {
-      if (eid != this._config.tventity) {
-        return html`<option value="${eid}">${this.hass.states[eid].attributes.friendly_name || eid}</option> `;
-      }
-      else {
-        return html`<option value="${eid}" selected>${this.hass.states[eid].attributes.friendly_name || eid}</option> `;
-      }
-    })}
-            </select>
-            <br>
-            <br>`
-  }
-
-  setRemoteName(remoteNameValue) {
-    let heading = 'Remote Control Name (option):';
-    return html`
-            ${heading}<br>
-            <input type="text" name="name" id="name" style="width: 37.8ch;padding: .6em; font-size: 1em;" .value="${remoteNameValue}"
-                   @input=${this.configChanged}
-            <br><br>
-        `;
-  }
-
-  selectMac(macValue) {
-    macValue = macValue ?? '00:11:22:33:44:55';
-    let heading = 'MAC Address:';
-    return html`
-            ${heading}<br>
-            <input type="text" name="mac" id="mac" style="width: 37.8ch;padding: .6em; font-size: 1em;" .value="${macValue}"
-                   @focusout=${this.configChanged}
-                   @change=${this.configChanged}>
-            <br><br>
-        `;
-  }
-
-  selectColors(config) {
-    let heading = 'Colors Configuration';
-
-    if (!config || !config.colors) {
-      config = { colors: { buttons: '', text: '', background: '', border: '' } };
-    }
-
-    return html`
-            <div class="heading">${heading}:</div>
-            <div class="color-selector" class="title">
-                <label class="color-item" for="buttons" >Buttons Color:</label>
-                <input type="color" name="buttons" id="buttons"  .value="${config.colors && config.colors.buttons || ''}"
-                       @input=${this.colorsConfigChanged}></input>
-                <ha-icon data-input-name="buttons" icon="mdi:trash-can-outline" @click=${this.colorsConfigChanged}></ha-icon>
- 
- 
-                <label class="color-item" for="text">Text Color:</label>
-                <input type="color" name="text" id="text"  .value="${config.colors && config.colors.text || ''}"
-                       @input=${this.colorsConfigChanged}></input>
-                       <ha-icon data-input-name="text" icon="mdi:trash-can-outline" @click=${this.colorsConfigChanged}></ha-icon>
- 
-                <label class="color-item" for="background">Background Color:</label>
-                <input type="color" name="background" id="background"  .value="${config.colors && config.colors.background || ''}"
-                       @input=${this.colorsConfigChanged}></input>
-                       <ha-icon data-input-name="background" icon="mdi:trash-can-outline" @click=${this.colorsConfigChanged}></ha-icon>
- 
-                <label class="color-item" for="border">Border color:</label>
-                <input type="color" name="border" id="border"  .value="${config.colors && config.colors.border || ''}"
-                        @input=${this.colorsConfigChanged}></input>
-                        <ha-icon data-input-name="border" icon="mdi:trash-can-outline" @click=${this.colorsConfigChanged}></ha-icon>
-            </div>
-        `;
-  }
-
-  colorButtonsConfig() {
-    // Use actual boolean with default false
-    const selectedValue = Boolean(this._config.color_buttons ?? false);
-
-    return html`
-      <div>Color buttons config</div>
-      <select name="color_buttons" id="color_buttons" class="select-item"
-              .value=${String(selectedValue)}
-              @change=${this.configChangedBool}
-      >
-        <option value="true" ?selected=${selectedValue}>On</option>
-        <option value="false" ?selected=${!selectedValue}>Off</option>
-      </select>
-      <br>
-    `;
-  }
-
   debugLog(log: Record<string, any>) {
     if (this.isDebuggerEnabled()) {
       console.log({ ...log, file: "editor.ts" })
@@ -312,108 +171,6 @@ class LgRemoteControlEditor extends LitElement {
   isDebuggerEnabled() {
     // Use Boolean type coercion with default false
     return Boolean(this._config.debug ?? false);
-  }
-
-  debugConfig() {
-    // Use actual boolean instead of string
-    const selectedValue = Boolean(this._config.debug ?? false);
-
-    return html`
-      <div>Debugger config</div>
-      <select name="debug" id="debug" class="select-item"
-              .value=${String(selectedValue)} 
-              @change=${this.configChangedBool}
-      >
-        <option value="true" ?selected=${selectedValue}>On</option>
-        <option value="false" ?selected=${!selectedValue}>Off</option>
-      </select>
-      <br>
-    `;
-  }
-
-  setDimensions(dimensions) {
-    let heading = 'Dimensions';
-
-    const borderWidth = parseFloat(dimensions.border_width ?? "1");
-
-    return html`
-          <div class="heading">${heading}:</div>
-          <br>
-          <label for="scale">Card Scale: ${dimensions.scale ?? 1}</label><br>
-          <input type="range" min="0.5" max="1.5" step="0.01" .value="${dimensions && dimensions.scale}" id="scale" name="scale" @input=${this.dimensionsConfigChanged} style="width: 40ch;">
-          </input>
-          <br>
-          <br>
-          <label for="border_width">Card border width: ${borderWidth}px</label><br>
-          <input type="range" min="1" max="5" step="1" .value="${borderWidth}" id="border_width" name="border_width" @input=${this.dimensionsConfigChanged} style="width: 40ch;">
-          </input>
-          <br>
-          </div>
-        `;
-  }
-
-  getDeviceAVReceiverDropdown(optionvalue) {
-    const familykeys = [...AvReceiverdevicemap.keys()];
-    const blankEntity = (!this._config.av_receiver_family || this._config.av_receiver_family === '')
-      ? html`<option value="" selected> - - - - </option>`
-      : '';
-    return html`
-        <div>AV-Receiver config option:</div>
-        <div style="display: flex;width: 40ch;align-items: center;">
-         <select 
-            name="av_receiver_family"
-            id="av_receiver_family"
-            class="select-item"
-            style="width:100%;"
-            .value=${optionvalue}
-            @focusout=${this.configChanged}
-            @change=${this.configChanged}>
-            ${blankEntity}
-            ${familykeys.map((family) => {
-      const receiverData = AvReceiverdevicemap.get(family);
-      return html`
-                <option value="${family}" ?selected=${optionvalue === family}>
-                  ${receiverData.friendlyName}
-                </option>
-              `;
-    })}
-          </select>
-          ${this._config.av_receiver_family && this._config.av_receiver_family != '' ? html`
-          <ha-icon 
-            style="padding-left: 0.8em;"
-            icon="mdi:trash-can-outline" 
-            @click=${this._erase_av_receiver}
-            @mouseover=${() => this.focus()}
-          ></ha-icon>`
-        : ''}
-        </div>
-        <br />
-    `;
-  }
-
-  getMediaPlayerEntityDropdown(optionValue) {
-    if (this._config.av_receiver_family) {
-      const mediaPlayerEntities = getMediaPlayerEntitiesByPlatform(this.hass, optionValue);
-      const blankEntity = (this._config.ampli_entity === '' || !mediaPlayerEntities.includes(optionValue))
-        ? html`<option value="" selected> - - - - </option>`
-        : '';
-      return html`
-                A-Receiver config (option):<br>
-                <select name="ampli_entity" id="ampli_entity" class="select-item" .value="${optionValue}"
-                        @focusout=${this.configChanged}
-                        @change=${this.configChanged}>
-                    ${blankEntity}
-                    ${mediaPlayerEntities.map((eid) => html`
-                        <option value="${eid}" ?selected=${eid === this._config.ampli_entity}>
-                            ${this.hass.states[eid].attributes.friendly_name || eid}
-                        </option>
-                    `)}
-                </select>
-                <br><br>
-            `;
-    } else {
-      return html``; // Gestire il caso in cui `deviceFamily` non corrisponda a nessuna piattaforma
-    }
   }
 
   private handleIconTypeChange(ev: Event) {
@@ -478,31 +235,6 @@ class LgRemoteControlEditor extends LitElement {
       bubbles: true,
       composed: true,
     }));
-  }
-
-  private handleSave() {
-    if (!this._selectedItem) return;
-
-    const { type, index } = this._selectedItem;
-    const newConfig = structuredClone(this._config);
-
-    // Update the item in the config
-    if (newConfig[type] && index !== -1) {
-      newConfig[type][index] = this._selectedItem.button;
-    }
-
-    this._config = newConfig;
-    this._isFormDirty = false;
-
-    // Dispatch config change event
-    this.dispatchEvent(new CustomEvent("config-changed", {
-      detail: { config: newConfig },
-      bubbles: true,
-      composed: true,
-    }));
-
-    // Reset form state
-    this.handleBack();
   }
 
   private handleItemUpdate(ev: Event) {
@@ -776,15 +508,6 @@ class LgRemoteControlEditor extends LitElement {
         <h3>${headerText}</h3>
         <div class="section-actions">
           ${this.renderErrorsIcon(type, errors)}
-          ${isEditing ? html`
-            <button 
-              @click=${this.handleSave}
-              ?disabled=${errors.length > 0}
-              title="Save changes">
-              <ha-icon icon="mdi:content-save"></ha-icon>
-              Save
-            </button>
-          ` : ''}
           ${this.renderTrashButton(() => { this.onTrashClick(type) }, true)}
           ${this.renderBackButton(type)}
         </div>

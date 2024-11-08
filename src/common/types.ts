@@ -22,7 +22,6 @@ export interface WindowWithCards extends Window {
   customCards: unknown[];
 }
 
-
 export interface ButtonConfig {
   tooltip?: string;
   color?: string;
@@ -40,6 +39,12 @@ export interface ButtonConfig {
   name: string;
 };
 
+export interface SelectedButton {
+  type: ButtonType,
+  index: number;
+  button: ButtonConfig;
+}
+
 export enum ButtonAction {
   source = "source",
   script = "script",
@@ -51,8 +56,10 @@ export enum ButtonType {
   buttons = "buttons",
   shortcuts = "shortcuts"
 }
-export interface SelectedButton {
-  type: ButtonType,
-  index: number;
-  button: ButtonConfig;
+
+export enum IconType {
+  svg = "svg",
+  mdi = "mdi",
+  img = "img",
+  none = "none"
 }

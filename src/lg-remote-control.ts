@@ -104,6 +104,16 @@ class LgRemoteControl extends LitElement {
       console.info({ hass: this.hass, config: this.config, state: stateObj, fn: "render", file: "lg-remote-control" })
     }
 
+    if (this.config.ampli_entity &&
+      (this.hass.states[this.config.entity].attributes.sound_output === 'external_arc' ||
+        this.hass.states[this.config.entity].attributes.sound_output === 'external_optical')) {
+      this.volume_value = Math.round(this.hass.states[this.config.ampli_entity].attributes.volume_level * 100 * 2) / 2;
+      this.output_entity = this.config.ampli_entity;
+    } else {
+      this.volume_value = Math.round(this.hass.states[this.config.entity].attributes.volume_level * 100);
+      this.output_entity = this.config.entity;
+    }
+
     return html`
     <div class="card">
       ${this._renderMainContainer(stateObj, this.config, debuggerEnabled)}
@@ -743,9 +753,11 @@ class LgRemoteControl extends LitElement {
       if (service.toLowerCase() === "volume_down" && customVolumeDownScript) {
         if (customVolumeDownScript.script_id) { this._run_script(customVolumeDownScript.script_id) }
         else if (customVolumeDownScript.scene_id) { this._run_scene(customVolumeDownScript.scene_id) }
+        else if (customVolumeDownScript.automation_id) { this._run_automation(customVolumeDownScript.automation_id) }
       } else if (service.toLowerCase() === "volume_up" && customVolumeUpScript) {
         if (customVolumeUpScript.script_id) { this._run_script(customVolumeUpScript.script_id) }
         else if (customVolumeUpScript.scene_id) { this._run_scene(customVolumeUpScript.scene_id) }
+        else if (customVolumeUpScript.automation_id) { this._run_automation(customVolumeUpScript.automation_id) }
       }
       else {
         this.callServiceFromConfig(service.toUpperCase(), `media_player.${service}`, {
