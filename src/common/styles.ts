@@ -146,6 +146,11 @@ button:focus {
   width: calc(var(--remotewidth) - 9%);
   border-radius: calc(var(--remotewidth)/12);
 }
+
+.grid-item-input.debug-screen {
+  display: unset !important;
+}
+
 .grid-item-input::-webkit-scrollbar {
   display: none;
   -ms-overflow-style: none;
@@ -310,6 +315,11 @@ ha-icon {
   height: calc(var(--remotewidth)/8.125);
   margin: calc(var(--remotewidth)/18.57) auto calc(var(--remotewidth)/20);
 }
+
+.btn_source.active {
+  background-color: var(--primary-color);
+}
+
 .btn-color {
   width: 70%;
   height: 55%;
@@ -403,5 +413,67 @@ ha-icon {
   text-align: center;
   color: var(--primary-text-color);
   font-size: calc(var(--remotewidth)/14);
+}
+
+.debug-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.debug-section {
+  border: 1px solid var(--divider-color, #e0e0e0);
+  border-bottom: none;
+}
+
+.debug-section:last-child {
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.debug-title {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.debug-content {
+  padding: 8px 16px;
+  background-color: var(--card-background-color);
+}
+
+.debug-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.debug-row:last-child {
+  border-bottom: none;
+}
+
+.debug-label {
+  font-weight: 500;
+  color: var(--secondary-text-color);
+  margin-bottom: 4px;
+}
+
+.debug-value {
+  word-break: break-word;
+  font-family: monospace;
+}
+
+.debug-list {
+  margin: 0;
+  padding: 0;
+}
+
+.debug-list-item {
+  padding: 2px 0;
+}
+
+.debug-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: var(--secondary-background-color);
+  padding: 8px;
+  border-radius: 4px;
 }
 `;

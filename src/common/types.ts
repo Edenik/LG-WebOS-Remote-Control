@@ -1,4 +1,5 @@
 import { HomeAssistant } from "custom-card-helpers";
+import { TemplateResult } from "lit";
 
 export interface HomeAssistantFixed extends HomeAssistant {
   entities: { [id: string]: EntityRegistryDisplayEntry };
@@ -20,6 +21,62 @@ export interface EntityRegistryDisplayEntry {
 
 export interface WindowWithCards extends Window {
   customCards: unknown[];
+}
+
+export interface LGRemoteControlConfig {
+  // Required Properties
+  entity: string;  // media_player entity_id
+
+  // Display Settings
+  name?: string;
+  tv_name_color?: string;
+  debug?: boolean;
+  debug_entities?: string[];
+
+  // Device Configuration
+  mac?: string;
+  ampli_entity?: string;
+  av_receiver_family?: string;
+
+  // Button Configurations
+  color_buttons?: boolean;
+  replace_buttons?: Array<{
+    button_name: string;
+    script_id?: string;
+    scene_id?: string;
+    automation_id?: string;
+  }>;
+
+  // Visual Customization
+  dimensions?: {
+    border_width?: string;
+    scale?: number;
+  };
+
+  colors?: {
+    buttons?: string;
+    background?: string;
+    border?: string;
+    text?: string;
+  };
+
+  // Custom Buttons & Shortcuts
+  buttons?: ButtonConfig[];
+  shortcuts?: ButtonConfig[];
+
+  // Channel Configuration
+  channels?: Array<{
+    image: string;
+    number: string;
+  }>;
+
+  // Service Key Mappings
+  keys?: {
+    [key: string]: {
+      service: string;
+      data: Record<string, any>;
+    };
+  };
 }
 
 export interface ButtonConfig {
@@ -62,4 +119,11 @@ export enum IconType {
   mdi = "mdi",
   img = "img",
   none = "none"
+}
+
+export interface SoundButton {
+  output: string;
+  text: string;
+  icon: string | TemplateResult<1>;
+  class: string;
 }

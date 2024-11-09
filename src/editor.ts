@@ -5,13 +5,13 @@ import { customElement } from "lit/decorators.js";
 import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, SelectedButton } from "./common/types";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton } from "./common/types";
 import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
 @customElement(EDITOR_CARD_TAG_NAME)
 class LgRemoteControlEditor extends LitElement {
-  private _config: any;
+  private _config: LGRemoteControlConfig;
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
   private _activeTab: ButtonType = ButtonType.buttons;
@@ -38,7 +38,7 @@ class LgRemoteControlEditor extends LitElement {
     this.requestUpdate();
   }
 
-  setConfig(config) {
+  setConfig(config: LGRemoteControlConfig) {
     const newConfig = {
       ...config,
       buttons: Array.isArray(config.buttons) ? config.buttons : [],
@@ -50,10 +50,10 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   // This function is called when the input element of the editor loses focus or is changed
-  configChanged(ev) {
-
+  configChanged(ev: Event) {
+    const target = ev.target as HTMLInputElement
     const _config = Object.assign({}, this._config);
-    _config[ev.target.name.toString()] = ev.target.value;
+    _config[target.name.toString()] = target.value;
     this._config = _config;
 
     // A config-changed event will tell lovelace we have made changed to the configuration
@@ -68,10 +68,11 @@ class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  configChangedBool(ev) {
-    const inputName = ev.target.name;
+  configChangedBool(ev: Event) {
+    const target = ev.target as HTMLInputElement
+    const inputName = target.name;
     // Convert string 'true'/'false' to boolean
-    const newValue = ev.target.value === 'true';
+    const newValue = target.value === 'true';
 
     const _config = { ...this._config };
     _config[inputName] = newValue;
@@ -87,10 +88,11 @@ class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  colorsConfigChanged(ev) {
+  colorsConfigChanged(ev: Event) {
     // Controlla se l'evento è scatenato da un'icona
-    if (ev.target.tagName === "HA-ICON") {
-      const inputName = ev.target.getAttribute("data-input-name");
+    const target = ev.target as HTMLInputElement
+    if (target.tagName === "HA-ICON") {
+      const inputName = target.getAttribute("data-input-name");
       if (inputName) {
         const inputElement = this.shadowRoot.querySelector(`[name="${inputName}"]`) as any;
         if (inputElement) {
@@ -118,7 +120,7 @@ class LgRemoteControlEditor extends LitElement {
       // Se l'evento non proviene da un'icona, gestisci la modifica dell'input come al solito
       const _config = Object.assign({}, this._config);
       _config["colors"] = { ...(_config["colors"] ?? {}) };
-      _config["colors"][ev.target.name.toString()] = ev.target.value;
+      _config["colors"][target.name.toString()] = target.value;
       this._config = _config;
 
       // Invia l'evento "config-changed"
@@ -138,15 +140,16 @@ class LgRemoteControlEditor extends LitElement {
     this.requestUpdate(); // Aggiunta per forzare il render
   }
 
-  dimensionsConfigChanged(ev) {
+  dimensionsConfigChanged(ev: Event) {
     // Se l'evento non proviene da un'icona, gestisci la modifica dell'input come al solito
     const _config = Object.assign({}, this._config);
     _config["dimensions"] = { ...(_config["dimensions"] ?? {}) };
+    const target = ev.target as HTMLInputElement
 
-    if (ev.target.name === 'border_width') {
-      _config["dimensions"][ev.target.name] = ev.target.value + 'px';
+    if (target.name === 'border_width') {
+      _config["dimensions"][target.name] = target.value + 'px';
     } else {
-      _config["dimensions"][ev.target.name] = ev.target.value;
+      _config["dimensions"][target.name] = target.value;
     }
 
     this._config = _config;
@@ -926,7 +929,7 @@ class LgRemoteControlEditor extends LitElement {
       <div class="list-container">
         ${buttons.map((button: ButtonConfig, index: number) => html`
           <div class="list-item-wrapper">
-            ${this.renderButtonItem(button, index, type)}
+            ${this.renderButtonItem(button)}
             <div class="item-actions">
               <ha-icon 
                 icon="mdi:arrow-up"
@@ -1056,7 +1059,7 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private renderButtonItem(button: ButtonConfig, index: number, identifier: ButtonType) {
+  private renderButtonItem(button: ButtonConfig) {
     return html`
       <div title="${button.tooltip}" class="list-item ${this._selectedItem?.button === button ? 'selected' : ''}">
         <div class="item-preview">
@@ -1185,10 +1188,10 @@ class LgRemoteControlEditor extends LitElement {
                     <div class="slider-group">
                         <div class="slider-label">
                             <span>Border Width</span>
-                            <span class="slider-value">${parseFloat(this._config.dimensions?.border_width || 1)}px</span>
+                            <span class="slider-value">${parseFloat(this._config.dimensions?.border_width || "1")}px</span>
                         </div>
                         <input type="range" min="1" max="5" step="1"
-                               .value="${parseFloat(this._config.dimensions?.border_width || 1)}"
+                               .value="${parseFloat(this._config.dimensions?.border_width || "1")}"
                                name="border_width"
                                @input=${this.dimensionsConfigChanged}>
                     </div>

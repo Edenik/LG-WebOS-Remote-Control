@@ -1,12 +1,13 @@
 import { HomeAssistant } from 'custom-card-helpers';
+import { HassEntity } from 'home-assistant-js-websocket';
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./common/icons";
 import { renderButtonMedia, renderShape } from './common/mediaRenderer';
 import { globalStyles } from './common/styles';
-import { ButtonConfig, HomeAssistantFixed, WindowWithCards } from "./common/types";
-import { getMediaPlayerEntitiesByPlatform } from "./common/utils";
+import { ButtonAction, ButtonConfig, HomeAssistantFixed, LGRemoteControlConfig, SoundButton, WindowWithCards } from "./common/types";
+import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform } from "./common/utils";
 import "./editor";
 
 
@@ -33,7 +34,7 @@ windowWithCards.customCards.push({
 @customElement(CARD_TAG_NAME)
 class LgRemoteControl extends LitElement {
   public hass!: HomeAssistant;
-  public config!: any;
+  public config!: LGRemoteControlConfig;
   private _show_inputs: boolean;
   private _show_shortcuts: boolean;
   private _show_debug: boolean;
@@ -97,11 +98,11 @@ class LgRemoteControl extends LitElement {
   }
 
   render() {
-    const stateObj = this.hass.states[this.config.entity];
-    const debuggerEnabled = this.config.debug;
+    const stateObj: HassEntity = this.hass.states[this.config.entity];
+    const debuggerEnabled: boolean = this.config.debug;
 
     if (debuggerEnabled) {
-      console.info({ hass: this.hass, config: this.config, state: stateObj, fn: "render", file: "lg-remote-control" })
+      console.info({ tv: stateObj, bose: this.hass.states["media_player.bose_soundbar_700"], hass: this.hass, config: this.config })
     }
 
     if (this.config.ampli_entity &&
@@ -121,7 +122,7 @@ class LgRemoteControl extends LitElement {
   `;
   }
 
-  _willRenderText(item) {
+  _willRenderText(item: ButtonConfig) {
     return Boolean(item.text);
   }
 
@@ -150,18 +151,16 @@ class LgRemoteControl extends LitElement {
     `;
   }
   // Main container renderer
-  _renderMainContainer(stateObj, config, debuggerEnabled) {
+  _renderMainContainer(stateObj: HassEntity, config: LGRemoteControlConfig, debuggerEnabled: boolean) {
     return html`
         <div class="page" style="${this._getMainStyles()}">
-          ${this._renderTitle(config, debuggerEnabled)}
-          ${this._renderPowerControls(stateObj)}
-          ${this._renderMainContent(stateObj, debuggerEnabled)}
+          ${this._renderMainContent(stateObj, config, debuggerEnabled)}
         </div>
       `;
   }
 
   // Title section
-  _renderTitle(config, debuggerEnabled) {
+  _renderTitle(config: LGRemoteControlConfig, debuggerEnabled: boolean) {
     const tv_name_color = this.config.tv_name_color ? this.config.tv_name_color : "var(--primary-text-color)";
 
     if (!config.name && !debuggerEnabled) return '';
@@ -173,7 +172,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Power controls section
-  _renderPowerControls(stateObj) {
+  _renderPowerControls(stateObj: HassEntity) {
     const { remoteWidth } = this._getStylesConst();
 
     return html`
@@ -190,7 +189,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Power button
-  _renderPowerButton(stateObj) {
+  _renderPowerButton(stateObj: HassEntity) {
     const textColor = this.config.colors && this.config.colors.text ? this.config.colors.text : "var(--primary-text-color)";
     const mac = this.config.mac;
 
@@ -208,15 +207,28 @@ class LgRemoteControl extends LitElement {
   }
 
   // Main content router
-  _renderMainContent(stateObj, debuggerEnabled: boolean) {
-    if (this._show_debug) return this._renderDebugView(stateObj);
+  _renderMainContent(stateObj: HassEntity, config: LGRemoteControlConfig, debuggerEnabled: boolean) {
+    if (this._show_debug) return this._renderDebugView(stateObj, config);
     if (this._show_inputs) return this._renderInputsView(stateObj);
-    if (this._show_shortcuts) return this._renderShortcutsView(stateObj);
+    if (this._show_shortcuts) return this._renderShortcutsView();
     return this._renderDefaultView(stateObj, debuggerEnabled);
   }
 
   // Debug view
-  _renderDebugView(stateObj) {
+  _renderDebugView(stateObj: HassEntity, config: LGRemoteControlConfig) {
+    const states = this.hass.states;
+    const debugEntities: HassEntity[] = [stateObj]; // add TV as first item
+
+    if (config.debug_entities) {
+      for (const entity of config.debug_entities) {
+        // we already pushed this entity (TV)
+        if (entity === stateObj.entity_id) { continue; }
+
+        const entityState: HassEntity | undefined = states[entity];
+        if (entityState) { debugEntities.push(entityState); }
+      }
+    }
+
     return html`
         <div class="grid-container-input">
           ${renderShape("input")}
@@ -224,33 +236,77 @@ class LgRemoteControl extends LitElement {
             <ha-icon icon="mdi:undo-variant"/>
           </button>
           <p class="source_text"><b>DEBUG</b></p>
-          ${this._renderDebugInfo(stateObj)}
+          <div class="grid-item-input debug-screen">
+            ${debugEntities.map((entityState: HassEntity) => this._renderDebugInfo(entityState))}
+          </div>
         </div>
       `;
   }
 
   // Debug information
-  _renderDebugInfo(stateObj) {
+  _renderDebugInfo(stateObj: HassEntity) {
     return html`
-        <div class="grid-item-input">
-          <p>Entity State</p>
-          ${JSON.stringify(stateObj, null, 4)}
+    <ha-expansion-panel header="${stateObj.attributes.friendly_name ?? stateObj.entity_id}">
+      <div class="debug-info">
+        <!-- Entity State Section -->
+        <div class="debug-section">
+          <div class="debug-content">
+            <div class="debug-row">
+              <div class="debug-label">Entity ID</div>
+              <div class="debug-value">${stateObj.entity_id}</div>
+            </div>
+            <div class="debug-row">
+              <div class="debug-label">State</div>
+              <div class="debug-value">${stateObj.state}</div>
+            </div>
+            <div class="debug-row">
+              <div class="debug-label">Last Changed</div>
+              <div class="debug-value">${stateObj.last_changed}</div>
+            </div>
+            <div class="debug-row">
+              <div class="debug-label">Last Updated</div>
+              <div class="debug-value">${stateObj.last_updated}</div>
+            </div>
+          </div>
         </div>
-        <br>
-        <div class="grid-item-input">
-          <p>Remote Config</p>
-          ${JSON.stringify(this.config, null, 4)}
+  
+        <!-- Attributes Section -->
+        <div class="debug-section">
+          <div class="debug-header">
+            <span class="debug-title">Attributes</span>
+          </div>
+          <div class="debug-content">
+            ${Object.entries(stateObj.attributes).map(([key, value]) => {
+      if (key === "supported_features" && stateObj.entity_id.startsWith("media_player.")) {
+        value = [value, "Decoded:", ...decodeSupportedFeatures(value)]
+      }
+
+      return html`
+              <div class="debug-row">
+                <div class="debug-label">${key}</div>
+                <div class="debug-value">
+                  ${Array.isArray(value)
+          ? html`
+                      <div class="debug-list">
+                        ${value.map(item => html`<div class="debug-list-item">${item}</div>`)}
+                      </div>`
+          : typeof value === 'object' && value !== null
+            ? html`<pre class="debug-pre">${JSON.stringify(value, null, 2)}</pre>`
+            : value
+        }
+                </div>
+              </div>
+            `
+    })}
+          </div>
         </div>
-        <br>
-        <div class="grid-item-input">
-          <p>Hass States</p>
-          ${JSON.stringify(this.hass.states, null, 4)}
-        </div>
-      `;
+      </div>
+      </ha-expansion-panel>
+    `;
   }
 
   // Inputs view
-  _renderInputsView(stateObj) {
+  _renderInputsView(stateObj: HassEntity) {
     return html`
       <div class="grid-container-input">
         ${renderShape("input")}
@@ -266,7 +322,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Source list renderer
-  _renderSourceList(stateObj) {
+  _renderSourceList(stateObj: HassEntity) {
     return stateObj.attributes.source_list.map(source => html`
       <button 
         class="${stateObj.attributes.source === source ? 'btn-input-on' : 'btn-input ripple overlay'}"
@@ -281,7 +337,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Shortcuts view
-  _renderShortcutsView(stateObj) {
+  _renderShortcutsView() {
     return html`
           <div class="grid-container-input">
             ${renderShape("input")}
@@ -324,7 +380,7 @@ class LgRemoteControl extends LitElement {
 
 
   // Sound view
-  _renderSoundView(stateObj) {
+  _renderSoundView(stateObj: HassEntity) {
     return html`
       <div class="grid-container-sound">
         ${renderShape("sound")}
@@ -337,7 +393,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Sound text view
-  _renderSoundText(stateObj) {
+  _renderSoundText(stateObj: HassEntity) {
     return html`
       <button class="btn_soundoutput ripple" @click=${() => this._show_text = false}>SOUND</button>
       ${this._renderSoundButtons(stateObj, true)}
@@ -345,7 +401,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Sound icons view
-  _renderSoundIcons(stateObj) {
+  _renderSoundIcons(stateObj: HassEntity) {
     return html`
       <button class="sound_icon_text ripple" @click=${() => this._show_text = true}>
         <ha-icon style="height: calc(var(--remotewidth) / 6); width: calc(var(--remotewidth) / 6);" icon="mdi:speaker">
@@ -355,8 +411,8 @@ class LgRemoteControl extends LitElement {
   }
 
   // Sound buttons renderer
-  _renderSoundButtons(stateObj, isText) {
-    const buttons = [
+  _renderSoundButtons(stateObj: HassEntity, isText: boolean) {
+    const buttons: SoundButton[] = [
       { output: "tv_speaker", text: "TV Speaker", icon: "mdi:television-classic", class: "tv" },
       { output: "tv_external_speaker", text: "TV + Optic", icon: tvOpticIcon(), class: "tv-opt" },
       { output: "tv_speaker_headphone", text: "TV + H-Phone", icon: tvHeadphonesIcon(), class: "tv-phone" },
@@ -371,7 +427,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Individual sound button renderer
-  _renderSoundButton(stateObj, button, isText) {
+  _renderSoundButton(stateObj: HassEntity, button: SoundButton, isText: boolean) {
     const isActive = stateObj.attributes.sound_output === button.output;
     const baseClass = isActive ? 'btn_sound_on' : 'btn_sound_off';
     const widthClass = isText ? 'bnt_sound_text_width' : 'bnt_sound_icon_width';
@@ -389,12 +445,12 @@ class LgRemoteControl extends LitElement {
   }
 
   // Default view
-  _renderDefaultView(stateObj, debuggerEnabled: boolean) {
+  _renderDefaultView(stateObj: HassEntity, debuggerEnabled: boolean) {
     return html`
        ${this._show_keypad ? this._renderKeypad() :
         this._show_sound_output ? this._renderSoundView(stateObj) :
           this._renderDirectionPad(stateObj)}
-      ${this._renderSourceButtons(debuggerEnabled)}
+      ${this._renderSourceButtons(debuggerEnabled, stateObj)}
       ${this._renderColorButtons()}
       ${this._renderVolumeChannelControl(stateObj)}
       ${this._renderMediaControl()}
@@ -443,15 +499,22 @@ class LgRemoteControl extends LitElement {
           <button 
             class="btn-color ripple" 
             style="background-color: ${color}; height: calc(var(--remotewidth) / 12);" 
-            @click=${() => this._button(command)}>
+            @click=${() => this._click_button(command)}>
           </button>
         `)}
       </div>
     `;
   }
 
+  _displayVolumePercentage() {
+    this._show_vol_text = true;
+    this.valueDisplayTimeout = setTimeout(() => {
+      this._show_vol_text = false;
+    }, 500);
+  }
+
   // Volume and channel control renderer with correct grid layout
-  _renderVolumeChannelControl(stateObj) {
+  _renderVolumeChannelControl(stateObj: HassEntity) {
     const isMuted = stateObj.attributes.is_volume_muted === true;
     const customMute = (this.config.replace_buttons ?? []).find((item) => item.button_name.toLowerCase() === "mute")
 
@@ -476,20 +539,22 @@ class LgRemoteControl extends LitElement {
         <!-- Channel Up button -->
         <button class="btn ripple" 
           style="border-radius: 50% 50% 0px 0px; margin: 0px auto 0px auto; height: 100%;" 
-          @click=${() => this._button("CHANNELUP")}>
+          @click=${() => this._click_button("CHANNELUP")}>
           <ha-icon icon="mdi:chevron-up"/>
         </button>
   
         <!-- Volume icon button -->
-        <button class="btn" 
+        <button class="btn ripple" 
+          @click=${() => { this._displayVolumePercentage() }}
           style="border-radius: 0px; cursor: default; margin: 0px auto 0px auto; height: 100%;">
-          <ha-icon icon="${isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}"/>
+          ${this._show_vol_text === true ? this.volume_value :
+        html`<ha-icon icon="${isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}"/>`}
         </button>
   
         <!-- Mute button -->
         <button class="btn ripple" 
           style="color:${isMuted ? 'red' : ''}; height: 100%;" 
-          @click=${() => customMute && customMute.script_id ? this._run_script(customMute.script_id) : customMute && customMute.scene_id ? this._run_scene(customMute.scene_id) : this._button("MUTE")}>
+          @click=${() => customMute && customMute.script_id ? this._run_script(customMute.script_id) : customMute && customMute.scene_id ? this._run_scene(customMute.scene_id) : this._click_button("MUTE")}>
           <span class="${isMuted ? 'blink' : ''}">
             <ha-icon icon="mdi:volume-mute"/>
           </span>
@@ -510,14 +575,14 @@ class LgRemoteControl extends LitElement {
         <!-- Info button -->
         <button class="btn-flat flat-high ripple" 
           style="margin-bottom: 0px; height: 50%;" 
-          @click=${() => this._button("INFO")}>
+          @click=${() => this._click_button("INFO")}>
           <ha-icon icon="mdi:information-variant"/>
         </button>
   
         <!-- Channel Down button -->
         <button class="btn ripple" 
           style="border-radius: 0px 0px 50% 50%; margin: 0px auto 0px auto; height: 100%;"  
-          @click=${() => this._button("CHANNELDOWN")}>
+          @click=${() => this._click_button("CHANNELDOWN")}>
           <ha-icon icon="mdi:chevron-down"/>
         </button>
       </div>
@@ -533,7 +598,7 @@ class LgRemoteControl extends LitElement {
                 <button class="btn-keypad ripple"
                  @click=${() => {
           if (num) {
-            this._button(num.toString())
+            this._click_button(num.toString())
           }
         }}>
                   ${num}
@@ -544,56 +609,56 @@ class LgRemoteControl extends LitElement {
   }
 
   // Direction pad renderer
-  _renderDirectionPad(stateObj) {
+  _renderDirectionPad(stateObj: HassEntity) {
     return html`
       <div class="grid-container-cursor">
         ${renderShape("direction")}
-        ${this._renderDirectionButtons(stateObj)}
+        ${this._renderDirectionButtons()}
       </div>
     `;
   }
 
   // Direction buttons renderer
-  _renderDirectionButtons(stateObj) {
+  _renderDirectionButtons() {
     const { backgroundColor } = this._getStylesConst()
     return html`
       <button class="btn ripple item_sound" @click=${() => this._show_sound_output = true}>
         <ha-icon icon="mdi:speaker"/>
       </button>
-      <button class="btn ripple item_up" style="background-color: transparent;" @click=${() => this._button("UP")}>
+      <button class="btn ripple item_up" style="background-color: transparent;" @click=${() => this._click_button("UP")}>
         <ha-icon icon="mdi:chevron-up"/>
       </button>
       <button class="btn ripple item_input" @click=${() => this._show_inputs = true}>
         <ha-icon icon="mdi:import"/>
       </button>
-      <button class="btn ripple item_2_sx" style="background-color: transparent;" @click=${() => this._button("LEFT")}>
+      <button class="btn ripple item_2_sx" style="background-color: transparent;" @click=${() => this._click_button("LEFT")}>
         <ha-icon icon="mdi:chevron-left"/>
       </button>
-      <div class="ok_button ripple item_2_c" style="border: solid 2px ${backgroundColor}" @click=${() => this._button("ENTER")}>
-        ${this._show_vol_text === true ? this.volume_value : 'OK'}
+      <div class="ok_button ripple item_2_c" style="border: solid 2px ${backgroundColor}" @click=${() => this._click_button("ENTER")}>
+        OK
       </div>
-      <button class="btn ripple item_right" style="background-color: transparent;" @click=${() => this._button("RIGHT")}>
+      <button class="btn ripple item_right" style="background-color: transparent;" @click=${() => this._click_button("RIGHT")}>
         <ha-icon icon="mdi:chevron-right"/>
       </button>
-      <button class="btn ripple item_back" @click=${() => this._button("BACK")}>
+      <button class="btn ripple item_back" @click=${() => this._click_button("BACK")}>
         <ha-icon icon="mdi:undo-variant"/>
       </button>
-      <button class="btn ripple item_down" style="background-color: transparent;" @click=${() => this._button("DOWN")}>
+      <button class="btn ripple item_down" style="background-color: transparent;" @click=${() => this._click_button("DOWN")}>
         <ha-icon icon="mdi:chevron-down"/>
       </button>
-      <button class="btn ripple item_exit" @click=${() => this._button("EXIT")}>EXIT</button>
+      <button class="btn ripple item_exit" @click=${() => this._click_button("EXIT")}>EXIT</button>
     `;
   }
 
   // Source buttons renderer
-  _renderSourceButtons(debuggerEnabled: boolean) {
+  _renderSourceButtons(debuggerEnabled: boolean, stateObj: HassEntity) {
     if (!this.config.buttons) {
       return this._renderDefaultSourceButtons();
     }
 
     return html`
       <div class="grid-container-source">
-        ${this.config.buttons.map(button => this._renderCustomButton(button))}
+        ${this.config.buttons.map(button => this._renderCustomButton(button, stateObj))}
         ${this.config.shortcuts ?
         html`
             <button class="btn_source ripple" @click=${() => this._show_shortcuts = true}>
@@ -642,7 +707,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Custom button renderer - handles individual script/scene buttons
-  _renderCustomButton(button: ButtonConfig) {
+  _renderCustomButton(button: ButtonConfig, stateObj: HassEntity) {
     // Check if this should render as text instead of icon/image
     const willRenderText = this._willRenderText(button);
 
@@ -651,9 +716,11 @@ class LgRemoteControl extends LitElement {
       ? `color: ${button.text_color};`
       : '';
 
+    const isCurrentSource = button.action === ButtonAction.source && stateObj.attributes["source"] === button.source;
+
     return html`
       <button 
-        class="btn_source ripple ${willRenderText ? 'btn_text' : ''}"
+        class="btn_source ripple ${willRenderText ? 'btn_text' : ''} ${isCurrentSource ? 'active' : ''}"
         style="${styleString}"
         title="${button.tooltip ?? ''}"
         @click=${() => { this._handleButtonClick(button) }}
@@ -662,29 +729,6 @@ class LgRemoteControl extends LitElement {
         ${renderButtonMedia(button)} ${button.text ?? ""}
       </button>
     `;
-  }
-
-
-  // Helper for image color filtering
-  _getColorFilter(color) {
-    // Convert color to RGB values for filtering
-    const rgb = this._hexToRgb(color);
-    if (!rgb) return '';
-
-    return `opacity(0.5) drop-shadow(0 0 0 ${color})`;
-  }
-
-  _hexToRgb(hex) {
-    // Remove # if present
-    hex = hex.replace('#', '');
-
-    // Parse hex to rgb
-    const bigint = parseInt(hex, 16);
-    return {
-      r: (bigint >> 16) & 255,
-      g: (bigint >> 8) & 255,
-      b: bigint & 255
-    };
   }
 
   _channelList() {
@@ -707,21 +751,21 @@ class LgRemoteControl extends LitElement {
     this.ownerDocument.querySelector("home-assistant").dispatchEvent(popupEvent);
   }
 
-  _button(button) {
+  _click_button(button: string) {
     this.callServiceFromConfig(button, "webostv.button", {
       entity_id: this.config.entity,
       button: button
     })
   }
 
-  _command(button, command) {
+  _command(button: string, command: string) {
     this.callServiceFromConfig(button, "webostv.command", {
       entity_id: this.config.entity,
       command: command
     });
   }
 
-  _media_player_turn_on(mac) {
+  _media_player_turn_on(mac: string) {
     if (this.config.mac) {
       this.hass.callService("wake_on_lan", "send_magic_packet", {
         mac: mac
@@ -731,7 +775,7 @@ class LgRemoteControl extends LitElement {
     }
   }
 
-  _media_player_service(button, service) {
+  _media_player_service(button: string, service: string) {
     this.callServiceFromConfig(button, `media_player.${service}`, {
       entity_id: this.config.entity,
     });
@@ -885,18 +929,18 @@ class LgRemoteControl extends LitElement {
     this.homeisLongPress = false;
     this.homelongPressTimer = setTimeout(() => {
       this.homeisLongPress = true;
-      this._button("MENU")
+      this._click_button("MENU")
     }, 1000); // Tempo in millisecondi per determinare una pressione prolungata
   }
 
   _homeButtonUp(event: MouseEvent | TouchEvent) {
     clearTimeout(this.homelongPressTimer);
     if (!this.homeisLongPress) {
-      this._button("HOME")
+      this._click_button("HOME")
     }
   }
 
-  _run_action(action: "script" | "automation" | "scene", actionId: string, data: Record<string, any> = {}) {
+  _run_action(action: ButtonAction.automation | ButtonAction.scene | ButtonAction.script, actionId: string, data: Record<string, any> = {}) {
     const domain = action;
     const service = actionId;
     const serviceData = { entity_id: `${domain}.${actionId}`, ...data };
@@ -905,15 +949,15 @@ class LgRemoteControl extends LitElement {
   }
 
   _run_script(scriptId: string, data: Record<string, any> = {}) {
-    this._run_action("script", scriptId, data);
+    this._run_action(ButtonAction.script, scriptId, data);
   }
 
   _run_scene(sceneId: string, data: Record<string, any> = {}) {
-    this._run_action("scene", sceneId, data);
+    this._run_action(ButtonAction.scene, sceneId, data);
   }
 
   _run_automation(automationId: string, data: Record<string, any> = {}) {
-    this._run_action("automation", automationId, data);
+    this._run_action(ButtonAction.automation, automationId, data);
   }
 
   _select_source(source: string) {
@@ -928,7 +972,7 @@ class LgRemoteControl extends LitElement {
     this.hass.callService(domain, service, serviceData);
   }
 
-  _select_sound_output(sound_output) {
+  _select_sound_output(sound_output: string) {
     const domain = "webostv";
     const service = "select_sound_output";
     const serviceData = {
@@ -941,7 +985,7 @@ class LgRemoteControl extends LitElement {
     this._show_sound_output = false;
   }
 
-  setConfig(config) {
+  setConfig(config: LGRemoteControlConfig) {
     if (!config.entity) {
       throw new Error("Invalid configuration");
     }
@@ -968,7 +1012,6 @@ class LgRemoteControl extends LitElement {
       serviceDataToUse
     );
   }
-
 
   static get styles() {
     return globalStyles
