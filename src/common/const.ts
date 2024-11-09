@@ -4,7 +4,7 @@ export const EDITOR_CARD_TAG_NAME = "lg-remote-control-editor";
 
 const avreceivers = {
     "dlna_dmr": {
-        "friendlyName": "Bose Soundbar 700",
+        "friendlyName": "DLNA DMR Receivers",
     },
     "anthemav": {
         "friendlyName": "Anthem A/V Receivers",
