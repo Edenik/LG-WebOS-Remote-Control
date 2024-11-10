@@ -1080,6 +1080,52 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
+  private _eraseSpotifyEntity() {
+    this._config.spotify_entity = '';
+    const event = new CustomEvent("config-changed", {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+    this.requestUpdate();
+  }
+
+  private renderSpotifyConfig() {
+    return html`
+        <div class="field-group">
+            <label class="field-label">Spotify Media Player Entity</label>
+            <div class="device-config">
+                <select 
+                    name="spotify_entity" 
+                    class="select-item device-select" 
+                    .value="${this._config.spotify_entity || ''}"
+                    @focusout=${this.configChanged}
+                    @change=${this.configChanged}
+                >
+                    ${!this._config.spotify_entity ? html`<option value="" selected> Select Spotify Entity </option>` : ''}
+                    ${Object.keys(this.hass.states)
+        .filter(entityId => entityId.startsWith('media_player.'))
+        .sort()
+        .map(entityId => html`
+                            <option 
+                                value="${entityId}" 
+                                ?selected=${entityId === this._config.spotify_entity}
+                            >
+                                ${this.hass.states[entityId].attributes.friendly_name || entityId}
+                            </option>
+                        `)}
+                </select>
+                ${this._config.spotify_entity ? html`
+                    <button class="clear-button" @click=${this._eraseSpotifyEntity}>
+                        <ha-icon icon="mdi:trash-can-outline"></ha-icon>
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+  }
+
   private renderBasicConfig() {
     return html`
         <ha-expansion-panel header="Basic Configuration">
@@ -1114,6 +1160,8 @@ class LgRemoteControlEditor extends LitElement {
                            .value="${this._config.name || ''}"
                            @input=${this.configChanged}>
                 </div>
+
+                ${this.renderSpotifyConfig()}
             </div>
         </ha-expansion-panel>
     `;

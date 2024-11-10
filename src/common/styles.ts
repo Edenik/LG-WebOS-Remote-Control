@@ -321,6 +321,10 @@ ha-icon {
   padding-inline: 10px;
 }
 
+.btn_source.rtl, .btn-input.rtl{
+  direction: rtl;
+}
+
 .btn_source.active {
     border: 2px solid var(--text-primary-color);
 }

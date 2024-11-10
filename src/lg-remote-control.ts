@@ -454,21 +454,22 @@ class LgRemoteControl extends LitElement {
   _renderShortcutList() {
     return this.config.shortcuts.map(shortcut => {
       const willRenderText = this._willRenderText(shortcut);
+      const isRtl = willRenderText && isRTL(shortcut.text);
 
       return html`
         <button 
-          class="btn-input ripple overlay"
+          class="btn-input ${isRtl ? 'rtl' : ''} ripple overlay"
           title="${shortcut.tooltip ?? ''}" 
-          style="
-            width: 95%;
-            ${willRenderText ? `color: ${shortcut.text_color ?? ''};` : ''}
-          "
+          style="width: 95%; ${willRenderText ? `color: ${shortcut.text_color ?? ''};` : ''}"
           @click=${() => {
           this._run_script(shortcut.script_id, shortcut.data);
           this._show_shortcuts = false;
         }}
         > 
-          ${renderButtonMedia(shortcut)} ${shortcut.text ?? ""}
+          <span>
+            ${renderButtonMedia(shortcut)}
+            ${shortcut.text ?? ""}
+          </span>
         </button>
       `;
     });
@@ -805,25 +806,22 @@ class LgRemoteControl extends LitElement {
   }
 
   _renderCustomButton(button: ButtonConfig, stateObj: HassEntity) {
-    // Check if this should render as text instead of icon/image
     const willRenderText = this._willRenderText(button);
-
-    // Build style string if text rendering
-    const styleString = willRenderText && button.text_color
-      ? `color: ${button.text_color};`
-      : '';
-
+    const isRtl = willRenderText && isRTL(button.text);
     const isCurrentSource = button.action === ButtonAction.source && stateObj.attributes["source"] === button.source;
 
     return html`
       <button 
-        class="btn_source ripple ${isCurrentSource ? 'active' : ''}"
-        style="${styleString}"
+        class="btn_source ${isRtl ? 'rtl' : ''} ripple ${isCurrentSource ? 'active' : ''}"
+        style="${willRenderText && button.text_color ? `color: ${button.text_color};` : ''}"
         title="${button.tooltip ?? ''}"
         @click=${() => { this._handleButtonClick(button) }}
         ?disabled=${button.action === 'script' && !button.script_id || button.action === 'source' && !button.source}
       >
-        ${renderButtonMedia(button)} ${button.text ?? ""}
+        <span>
+          ${renderButtonMedia(button)}
+          ${button.text ?? ""}
+        </span>
       </button>
     `;
   }
