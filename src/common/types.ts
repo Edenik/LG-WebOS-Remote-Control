@@ -37,6 +37,7 @@ export interface LGRemoteControlConfig {
   // Device Configuration
   mac?: string;
   ampli_entity?: string;
+  spotify_entity?: string;
   av_receiver_family?: string;
 
   // Button Configurations

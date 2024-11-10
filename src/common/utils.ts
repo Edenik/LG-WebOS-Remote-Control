@@ -36,3 +36,10 @@ export const decodeSupportedFeatures = (supportedFeatures: number) => {
 
   return supportedActions;
 }
+
+export const isRTL = (text: string = ""): boolean => {
+  // Hebrew character range: \u0590-\u05FF
+  // Arabic character range: \u0600-\u06FF
+  const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF]/;
+  return rtlRegex.test(text);
+}

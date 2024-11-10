@@ -7,18 +7,20 @@ import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHe
 import { renderButtonMedia, renderShape } from './common/mediaRenderer';
 import { globalStyles } from './common/styles';
 import { ButtonAction, ButtonConfig, HomeAssistantFixed, LGRemoteControlConfig, SoundButton, WindowWithCards } from "./common/types";
-import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform } from "./common/utils";
+import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform, isRTL } from "./common/utils";
 import "./editor";
 
-
 const line1 = '  LG WebOS Remote Control Card  ';
-const line2 = `  version: ${CARD_VERSION}  `;
-/* eslint no-console: 0 */
-console.info(
-  `%c${line1}\n%c${line2}`,
-  'color: orange; font-weight: bold; background: black',
-  'color: white; font-weight: bold; background: dimgray',
-);
+const logger = (title: string, log: any) => {
+  console.log(
+    `%c${line1}\n%c  ${title}  `,
+    'color: powderblue; font-weight: bold; background: black',
+    'color: royalblue; font-weight: bold; background: white',
+    log
+  );
+}
+
+logger(`version: ${CARD_VERSION}`, "")
 
 
 // Allow this card to appear in the card chooser menu
@@ -48,7 +50,7 @@ class LgRemoteControl extends LitElement {
   private valueDisplayTimeout: NodeJS.Timeout;
   private homeisLongPress: boolean = false;
   private homelongPressTimer: any; // Tipo generico, ma puoi specificare il tipo corretto se lo conosci
-
+  private _lastSpotifyTitle: string;
 
   static getConfigElement() {
     // Create and return an editor element
@@ -97,13 +99,21 @@ class LgRemoteControl extends LitElement {
     this.soundOutput = "";
   }
 
+  logStates() {
+    const entitiesState: Record<string, HassEntity> = {};
+    for (const entityName of [this.config.entity, ...(this.config.debug_entities || [])]) {
+      const entity: HassEntity = this.hass.states[entityName];
+      if (entity) { entitiesState[entity.entity_id] = entity; }
+    }
+
+    logger("State changed:", { ...entitiesState, config: this.config, hass: this.hass });
+  }
+
   render() {
     const stateObj: HassEntity = this.hass.states[this.config.entity];
     const debuggerEnabled: boolean = this.config.debug;
 
-    if (debuggerEnabled) {
-      console.info({ tv: stateObj, bose: this.hass.states["media_player.bose_soundbar_700"], hass: this.hass, config: this.config })
-    }
+    if (debuggerEnabled) { this.logStates() };
 
     if (this.config.ampli_entity &&
       (this.hass.states[this.config.entity].attributes.sound_output === 'external_arc' ||
@@ -150,11 +160,42 @@ class LgRemoteControl extends LitElement {
       --main-border-width: ${borderWidth};
     `;
   }
+
+  _renderSpotifyRow() {
+    const spotifyTitle = this.getSpotifyTitle();
+    if (!spotifyTitle) return '';
+
+    const spotifyState = this.hass.states["media_player.spotify_eden_nahum"];
+    const albumArt = spotifyState.attributes.entity_picture;
+    const _isRTL = isRTL(spotifyTitle);
+
+    return html`
+      <div class="spotify-container">
+        <div class="spotify-scroll ${_isRTL ? 'rtl' : 'ltr'}">
+          <div class="spotify-text ${_isRTL ? 'rtl' : 'ltr'}">
+            <ha-icon 
+              class="spotify-icon" 
+              icon="mdi:spotify" 
+              style="color: #1DB954; margin: ${_isRTL ? '0 0 0 8px' : '0 8px 0 0'}"
+            ></ha-icon>
+            ${spotifyTitle}
+            <img 
+              src="${albumArt}" 
+              class="album-art"
+              style="margin: ${_isRTL ? '0 8px 0 0' : '0 0 0 8px'}"
+            />
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // Main container renderer
   _renderMainContainer(stateObj: HassEntity, config: LGRemoteControlConfig, debuggerEnabled: boolean) {
     return html`
         <div class="page" style="${this._getMainStyles()}">
           ${this._renderTitle(config, debuggerEnabled)}
+          ${this._renderSpotifyRow()}
           ${this._renderPowerControls(stateObj)}
           ${this._renderMainContent(stateObj, config, debuggerEnabled)}
         </div>
@@ -943,21 +984,31 @@ class LgRemoteControl extends LitElement {
     });
   }
 
+  getSpotifyTitle(): string {
+    if (!this.config.spotify_entity) { return ""; }
+    const spotifyEntity = this.hass.states[this.config.spotify_entity];
+    if (!spotifyEntity || !spotifyEntity.attributes?.media_title || !spotifyEntity.attributes?.media_artist) { return ""; }
+    return `${spotifyEntity.attributes?.media_artist} - ${spotifyEntity.attributes?.media_title}`;
+  }
+
   updated(changedProperties) {
     if (changedProperties.has("hass")) {
       const tvEntity = this.hass.states[this.config.entity];
+      const spotifyTitle = this.getSpotifyTitle();
       const newSoundOutput = tvEntity.attributes.sound_output;
 
-      if (newSoundOutput !== this.soundOutput) {
-        this.soundOutput = newSoundOutput; // Aggiorna il valore della variabile di classe
-        this.requestUpdate(); // Richiedi l'aggiornamento della card
+      if (newSoundOutput !== this.soundOutput ||
+        spotifyTitle !== this._lastSpotifyTitle) {
+        this.soundOutput = newSoundOutput;
+        this._lastSpotifyTitle = spotifyTitle;
+        this.requestUpdate();
       }
     }
   }
 
-  _debugLog(domain: string, service: string, serviceData: Record<string, any>) {
+  _logAction(domain: string, service: string, serviceData: Record<string, any>) {
     if (this.config.debug) {
-      console.log({ domain, service, serviceData, fn: "debugLog", file: "lg-remote-control" })
+      logger("Called action:", { domain, service, serviceData })
     }
   }
 
@@ -980,7 +1031,7 @@ class LgRemoteControl extends LitElement {
     const domain = action;
     const service = actionId;
     const serviceData = { entity_id: `${domain}.${actionId}`, ...data };
-    this._debugLog(domain, service, serviceData);
+    this._logAction(domain, service, serviceData);
     this.hass.callService(domain, service, serviceData);
   }
 
@@ -1004,7 +1055,7 @@ class LgRemoteControl extends LitElement {
       source: source
     };
 
-    this._debugLog(domain, service, serviceData);
+    this._logAction(domain, service, serviceData);
     this.hass.callService(domain, service, serviceData);
   }
 
@@ -1016,7 +1067,7 @@ class LgRemoteControl extends LitElement {
       sound_output: sound_output
     };
 
-    this._debugLog(domain, service, serviceData);
+    this._logAction(domain, service, serviceData);
     this.hass.callService(domain, service, serviceData);
     this._show_sound_output = false;
   }
@@ -1041,7 +1092,7 @@ class LgRemoteControl extends LitElement {
       serviceDataToUse = keyConfig["data"];
     }
 
-    this._debugLog(serviceToUse.split(".")[0], serviceToUse.split(".")[1], serviceDataToUse);
+    this._logAction(serviceToUse.split(".")[0], serviceToUse.split(".")[1], serviceDataToUse);
     this.hass.callService(
       serviceToUse.split(".")[0],
       serviceToUse.split(".")[1],

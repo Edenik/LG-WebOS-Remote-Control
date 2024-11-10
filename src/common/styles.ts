@@ -113,6 +113,7 @@ button:focus {
   width: calc(var(--remotewidth)/1.03);
   overflow: hidden;
   margin: auto;
+  padding-block: 1rem;
 }
 
 .grid-container-source > * {
@@ -316,12 +317,12 @@ ha-icon {
 .btn_source {
   min-width: calc(var(--remotewidth)/5.9);
   height: calc(var(--remotewidth)/8.125);
-  margin: calc(var(--remotewidth)/18.57) auto calc(var(--remotewidth)/20);
+  margin: 0 auto;
   padding-inline: 10px;
 }
 
 .btn_source.active {
-  background-color: var(--primary-color);
+    border: 2px solid var(--text-primary-color);
 }
 
 .btn-color {
@@ -486,4 +487,80 @@ ha-icon {
   padding: 8px;
   border-radius: 4px;
 }
+
+  .spotify-container {
+        width: var(--remotewidth);
+        margin: 10px auto;
+        padding: 8px;
+        background-color: var(--remote-button-color);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .spotify-scroll {
+        width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+      }
+
+      .spotify-text {
+        display: inline-flex;
+        align-items: center;
+        animation-duration: 20s;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+
+      .spotify-icon {
+        font-size: 1.2em;
+        vertical-align: middle;
+      }
+
+      .album-art {
+        height: 24px;
+        width: 24px;
+        border-radius: 4px;
+        object-fit: cover;
+      }
+
+      /* LTR Styles */
+      .spotify-text.ltr {
+        padding-left: 100%;
+        animation-name: scroll-left;
+      }
+
+      /* RTL Styles */
+      .spotify-text.rtl {
+        padding-right: 100%;
+        animation-name: scroll-right;
+      }
+
+      .spotify-scroll.rtl {
+        direction: rtl;
+      }
+
+      @keyframes scroll-left {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      @keyframes scroll-right {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      /* Stop animation when media is not playing */
+      .spotify-text.paused {
+        animation-play-state: paused;
+      }
+
 `;
