@@ -51,6 +51,7 @@ class LgRemoteControl extends LitElement {
   private homeisLongPress: boolean = false;
   private homelongPressTimer: any; // Tipo generico, ma puoi specificare il tipo corretto se lo conosci
   private _lastSpotifyTitle: string;
+  private _lastSpotifyState: string;
 
   static getConfigElement() {
     // Create and return an editor element
@@ -165,14 +166,15 @@ class LgRemoteControl extends LitElement {
     const spotifyTitle = this.getSpotifyTitle();
     if (!spotifyTitle) return '';
 
-    const spotifyState = this.hass.states["media_player.spotify_eden_nahum"];
+    const spotifyState: HassEntity = this.hass.states["media_player.spotify_eden_nahum"];
     const albumArt = spotifyState.attributes.entity_picture;
+    const isPaused = spotifyState.state === "paused";
     const _isRTL = isRTL(spotifyTitle);
 
     return html`
       <div class="spotify-container">
         <div class="spotify-scroll ${_isRTL ? 'rtl' : 'ltr'}">
-          <div class="spotify-text ${_isRTL ? 'rtl' : 'ltr'}">
+          <div class="spotify-text ${isPaused ? "paused" : ""} ${_isRTL ? 'rtl' : 'ltr'}">
             <ha-icon 
               class="spotify-icon" 
               icon="mdi:spotify" 
@@ -985,23 +987,29 @@ class LgRemoteControl extends LitElement {
     });
   }
 
+  getSpotifyEntity(): HassEntity | undefined {
+    if (!this.config.spotify_entity) { return; }
+    return this.hass.states[this.config.spotify_entity];
+  }
+
   getSpotifyTitle(): string {
-    if (!this.config.spotify_entity) { return ""; }
-    const spotifyEntity = this.hass.states[this.config.spotify_entity];
+    const spotifyEntity = this.getSpotifyEntity();
     if (!spotifyEntity || !spotifyEntity.attributes?.media_title || !spotifyEntity.attributes?.media_artist) { return ""; }
     return `${spotifyEntity.attributes?.media_artist} - ${spotifyEntity.attributes?.media_title}`;
   }
 
   updated(changedProperties) {
     if (changedProperties.has("hass")) {
-      const tvEntity = this.hass.states[this.config.entity];
+      const tvEntity: HassEntity = this.hass.states[this.config.entity];
+      const spotifyEntity = this.getSpotifyEntity();
       const spotifyTitle = this.getSpotifyTitle();
       const newSoundOutput = tvEntity.attributes.sound_output;
 
       if (newSoundOutput !== this.soundOutput ||
-        spotifyTitle !== this._lastSpotifyTitle) {
+        spotifyTitle !== this._lastSpotifyTitle || spotifyEntity.state !== this._lastSpotifyState) {
         this.soundOutput = newSoundOutput;
         this._lastSpotifyTitle = spotifyTitle;
+        this._lastSpotifyState = spotifyEntity.state;
         this.requestUpdate();
       }
     }
