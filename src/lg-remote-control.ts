@@ -6,7 +6,7 @@ import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./common/cons
 import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./common/icons";
 import { renderButtonMedia, renderShape } from './common/mediaRenderer';
 import { globalStyles } from './common/styles';
-import { ButtonAction, ButtonConfig, HomeAssistantFixed, LGRemoteControlConfig, SoundButton, WindowWithCards } from "./common/types";
+import { ButtonAction, ButtonConfig, HomeAssistantFixed, LGRemoteControlConfig, SoundButton, SpotifyLocation, WindowWithCards } from "./common/types";
 import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform, isRTL } from "./common/utils";
 import "./editor";
 
@@ -193,13 +193,14 @@ class LgRemoteControl extends LitElement {
   // Main container renderer
   _renderMainContainer(stateObj: HassEntity, config: LGRemoteControlConfig, debuggerEnabled: boolean) {
     return html`
-        <div class="page" style="${this._getMainStyles()}">
-          ${this._renderTitle(config, debuggerEnabled)}
-          ${this._renderSpotifyRow()}
-          ${this._renderPowerControls(stateObj)}
-          ${this._renderMainContent(stateObj, config, debuggerEnabled)}
-        </div>
-      `;
+      <div class="page" style="${this._getMainStyles()}">
+        ${this._renderTitle(config, debuggerEnabled)}
+        ${this.config.spotify_location === SpotifyLocation.TOP ? this._renderSpotifyRow() : ''}
+        ${this._renderPowerControls(stateObj)}
+        ${this._renderMainContent(stateObj, config, debuggerEnabled)}
+        ${this.config.spotify_location === SpotifyLocation.BOTTOM ? this._renderSpotifyRow() : ''}
+      </div>
+    `;
   }
 
   // Title section
@@ -547,7 +548,9 @@ class LgRemoteControl extends LitElement {
        ${this._show_keypad ? this._renderKeypad() :
         this._show_sound_output ? this._renderSoundView(stateObj) :
           this._renderDirectionPad(stateObj)}
-      ${this._renderSourceButtons(debuggerEnabled, stateObj)}
+      ${this.config.spotify_location === SpotifyLocation.ABOVE_BUTTONS ? this._renderSpotifyRow() : ''}
+      ${this._renderCustomButtons(debuggerEnabled, stateObj)}
+      ${this.config.spotify_location === SpotifyLocation.UNDER_BUTTONS ? this._renderSpotifyRow() : ''}
       ${this._renderColorButtons()}
       ${this._renderVolumeChannelControl(stateObj)}
       ${this._renderMediaControl()}
@@ -748,7 +751,7 @@ class LgRemoteControl extends LitElement {
   }
 
   // Source buttons renderer
-  _renderSourceButtons(debuggerEnabled: boolean, stateObj: HassEntity) {
+  _renderCustomButtons(debuggerEnabled: boolean, stateObj: HassEntity) {
     if (!this.config.buttons) {
       return this._renderDefaultSourceButtons();
     }
@@ -1074,7 +1077,12 @@ class LgRemoteControl extends LitElement {
     if (!config.entity) {
       throw new Error("Invalid configuration");
     }
-    this.config = config;
+    const newConfig = {
+      ...config,
+      spotify_location: config.spotify_location || SpotifyLocation.TOP
+    };
+
+    this.config = newConfig;
   }
 
   getCardSize() {

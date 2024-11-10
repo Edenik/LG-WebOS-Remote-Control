@@ -493,78 +493,79 @@ ha-icon {
 }
 
   .spotify-container {
-        width: var(--remotewidth);
-        margin: 10px auto;
-        padding: 8px;
-        background-color: var(--remote-button-color);
-        border-radius: 12px;
-        overflow: hidden;
-      }
+    width: 100%;
+    margin: 8px 0;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .spotify-scroll {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .spotify-scroll.rtl {
+    direction: rtl;
+  }
+  
+  .spotify-scroll.ltr {
+    direction: ltr;
+  }
+  
+  .spotify-text {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    animation: marquee 20s linear infinite;
+    padding: 0 4px;
+  }
+  
+  .spotify-text.rtl {
+    direction: rtl;
+  }
+  
+  .spotify-text.ltr {
+    direction: ltr;
+  }
+  
+  .spotify-icon {
+    flex-shrink: 0;
+  }
+  
+  .album-art {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  
+  @keyframes marquee {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+  
+  @keyframes marquee-rtl {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  
+  .spotify-scroll.rtl .spotify-text {
+    animation-name: marquee-rtl;
+  }
 
-      .spotify-scroll {
-        width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-      }
-
-      .spotify-text {
-        display: inline-flex;
-        align-items: center;
-        animation-duration: 20s;
-        animation-timing-function: linear;
-        animation-iteration-count: infinite;
-      }
-
-      .spotify-icon {
-        font-size: 1.2em;
-        vertical-align: middle;
-      }
-
-      .album-art {
-        height: 24px;
-        width: 24px;
-        border-radius: 4px;
-        object-fit: cover;
-      }
-
-      /* LTR Styles */
-      .spotify-text.ltr {
-        padding-left: 100%;
-        animation-name: scroll-left;
-      }
-
-      /* RTL Styles */
-      .spotify-text.rtl {
-        padding-right: 100%;
-        animation-name: scroll-right;
-      }
-
-      .spotify-scroll.rtl {
-        direction: rtl;
-      }
-
-      @keyframes scroll-left {
-        0% {
-          transform: translateX(0);
-        }
-        100% {
-          transform: translateX(-100%);
-        }
-      }
-
-      @keyframes scroll-right {
-        0% {
-          transform: translateX(0);
-        }
-        100% {
-          transform: translateX(100%);
-        }
-      }
-
-      /* Stop animation when media is not playing */
-      .spotify-text.paused {
-        animation-play-state: paused;
-      }
-
+  /* Stop animation when media is not playing */
+  .spotify-text.paused {
+    animation-play-state: paused;
+  }
 `;

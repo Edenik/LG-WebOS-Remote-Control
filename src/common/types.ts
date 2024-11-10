@@ -38,6 +38,7 @@ export interface LGRemoteControlConfig {
   mac?: string;
   ampli_entity?: string;
   spotify_entity?: string;
+  spotify_location?: SpotifyLocation;
   av_receiver_family?: string;
 
   // Button Configurations
@@ -122,4 +123,11 @@ export interface SoundButton {
   text: string;
   icon: string | TemplateResult<1>;
   class: string;
+}
+
+export enum SpotifyLocation {
+  TOP = "top",
+  BOTTOM = "bottom",
+  ABOVE_BUTTONS = "above_buttons",
+  UNDER_BUTTONS = "under_buttons"
 }

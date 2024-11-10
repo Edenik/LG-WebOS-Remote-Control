@@ -5,7 +5,7 @@ import { customElement } from "lit/decorators.js";
 import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton } from "./common/types";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton, SpotifyLocation } from "./common/types";
 import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
@@ -42,7 +42,8 @@ class LgRemoteControlEditor extends LitElement {
     const newConfig = {
       ...config,
       buttons: Array.isArray(config.buttons) ? config.buttons : [],
-      shortcuts: Array.isArray(config.shortcuts) ? config.shortcuts : []
+      shortcuts: Array.isArray(config.shortcuts) ? config.shortcuts : [],
+      spotify_location: config.spotify_location || SpotifyLocation.TOP
     };
 
     this._config = newConfig;
@@ -1123,6 +1124,44 @@ class LgRemoteControlEditor extends LitElement {
                 ` : ''}
             </div>
         </div>
+
+        ${this._config.spotify_entity ? html`
+            <div class="field-group">
+                <label class="field-label">Spotify Location</label>
+                <select 
+                    name="spotify_location" 
+                    class="select-item"
+                    .value="${this._config.spotify_location || SpotifyLocation.TOP}"
+                    @focusout=${this.configChanged}
+                    @change=${this.configChanged}
+                >
+                    <option 
+                        value="${SpotifyLocation.TOP}"
+                        ?selected=${this._config.spotify_location === SpotifyLocation.TOP}
+                    >
+                        Top
+                    </option>
+                    <option 
+                        value="${SpotifyLocation.BOTTOM}"
+                        ?selected=${this._config.spotify_location === SpotifyLocation.BOTTOM}
+                    >
+                        Bottom
+                    </option>
+                    <option 
+                        value="${SpotifyLocation.ABOVE_BUTTONS}"
+                        ?selected=${this._config.spotify_location === SpotifyLocation.ABOVE_BUTTONS}
+                    >
+                        Above Buttons
+                    </option>
+                    <option 
+                        value="${SpotifyLocation.UNDER_BUTTONS}"
+                        ?selected=${this._config.spotify_location === SpotifyLocation.UNDER_BUTTONS}
+                    >
+                        Under Buttons
+                    </option>
+                </select>
+            </div>
+        ` : ''}
     `;
   }
 
