@@ -346,7 +346,7 @@ class LgRemoteControl extends LitElement {
     const { type, entity, mac, name, av_receiver_family, debug, ampli_entity,
       shortcuts, buttons, replace_buttons, debug_entities, dimensions, colors } = config;
     return html`
-      <ha-expansion-panel header="Remote Control Configuration" expanded>
+      <ha-expansion-panel header="Remote Control Configuration">
         <div class="debug-info">
           ${this._renderConfigSection('Basic Configuration', { type, entity, mac, name, av_receiver_family, debug, ampli_entity })}
           ${this._renderConfigSection('Shortcuts', shortcuts)}
