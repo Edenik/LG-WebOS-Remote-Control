@@ -429,6 +429,12 @@ ha-icon {
   border-bottom: 1px solid var(--divider-color, #e0e0e0);
 }
 
+.debug-header {
+  background: var(--secondary-background-color);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+}
+
 .debug-title {
   font-weight: 500;
   font-size: 16px;

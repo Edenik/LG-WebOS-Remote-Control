@@ -25,6 +25,7 @@ export interface WindowWithCards extends Window {
 
 export interface LGRemoteControlConfig {
   // Required Properties
+  type: `custom:${string}`; // Based on the getStubConfig usage
   entity: string;  // media_player entity_id
 
   // Display Settings
@@ -63,12 +64,6 @@ export interface LGRemoteControlConfig {
   // Custom Buttons & Shortcuts
   buttons?: ButtonConfig[];
   shortcuts?: ButtonConfig[];
-
-  // Channel Configuration
-  channels?: Array<{
-    image: string;
-    number: string;
-  }>;
 
   // Service Key Mappings
   keys?: {

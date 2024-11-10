@@ -154,6 +154,8 @@ class LgRemoteControl extends LitElement {
   _renderMainContainer(stateObj: HassEntity, config: LGRemoteControlConfig, debuggerEnabled: boolean) {
     return html`
         <div class="page" style="${this._getMainStyles()}">
+          ${this._renderTitle(config, debuggerEnabled)}
+          ${this._renderPowerControls(stateObj)}
           ${this._renderMainContent(stateObj, config, debuggerEnabled)}
         </div>
       `;
@@ -177,12 +179,12 @@ class LgRemoteControl extends LitElement {
 
     return html`
         <div class="grid-container-power" style="--remotewidth: ${remoteWidth}">
-          <button class="btn-flat flat-high ripple" @click=${() => this._channelList()}>
-            <ha-icon icon="mdi:format-list-numbered"/>
+          <button class="btn-flat flat-high ripple" @click=${() => this._click_button("MENU")}>
+            <ha-icon icon="mdi:cog"/>
           </button>
           ${this._renderPowerButton(stateObj)}
           <button class="btn-flat flat-high ripple" @click=${() => this._show_keypad = !this._show_keypad}>
-            123
+            <ha-icon icon="mdi:numeric"/>
           </button>
         </div>
       `;
@@ -237,6 +239,7 @@ class LgRemoteControl extends LitElement {
           </button>
           <p class="source_text"><b>DEBUG</b></p>
           <div class="grid-item-input debug-screen">
+            ${this._renderConfig(config)}
             ${debugEntities.map((entityState: HassEntity) => this._renderDebugInfo(entityState))}
           </div>
         </div>
@@ -301,6 +304,58 @@ class LgRemoteControl extends LitElement {
           </div>
         </div>
       </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  _renderConfigSection = (title: string, data: any) => {
+    if (!data || (Array.isArray(data) && data.length === 0)) return '';
+
+    return html`
+      <div class="debug-section">
+        <div class="debug-header">
+          <span class="debug-title">${title}</span>
+        </div>
+        <div class="debug-content">
+          ${Array.isArray(data) ?
+        data.map(item => html`
+              <div class="debug-row">
+                <div class="debug-label">${item.name || item.text || item.button_name || 'Item'}</div>
+                <div class="debug-value">
+                  <pre class="debug-pre">${JSON.stringify(item, null, 2)}</pre>
+                </div>
+              </div>
+            `) :
+        Object.entries(data).map(([key, value]) => html`
+              <div class="debug-row">
+                <div class="debug-label">${key}</div>
+                <div class="debug-value">
+                  ${typeof value === 'object' ?
+            html`<pre class="debug-pre">${JSON.stringify(value, null, 2)}</pre>` :
+            value}
+                </div>
+              </div>
+            `)
+      }
+        </div>
+      </div>
+    `;
+  };
+
+  _renderConfig(config: LGRemoteControlConfig) {
+    const { type, entity, mac, name, av_receiver_family, debug, ampli_entity,
+      shortcuts, buttons, replace_buttons, debug_entities, dimensions, colors } = config;
+    return html`
+      <ha-expansion-panel header="Remote Control Configuration" expanded>
+        <div class="debug-info">
+          ${this._renderConfigSection('Basic Configuration', { type, entity, mac, name, av_receiver_family, debug, ampli_entity })}
+          ${this._renderConfigSection('Shortcuts', shortcuts)}
+          ${this._renderConfigSection('Buttons', buttons)}
+          ${this._renderConfigSection('Replace Buttons', replace_buttons)}
+          ${this._renderConfigSection('Debug Entities', debug_entities)}
+          ${this._renderConfigSection('Dimensions', dimensions)}
+          ${this._renderConfigSection('Colors', colors)}
+        </div>
       </ha-expansion-panel>
     `;
   }
@@ -729,26 +784,6 @@ class LgRemoteControl extends LitElement {
         ${renderButtonMedia(button)} ${button.text ?? ""}
       </button>
     `;
-  }
-
-  _channelList() {
-    const popupEvent = new Event('ll-custom', { bubbles: true, cancelable: false, composed: true });
-    (popupEvent as any).detail = {
-      "browser_mod": {
-        "service": "browser_mod.popup",
-        "data": {
-          "content": {
-            "type": "custom:card-channel-pad",
-            "entity": this.config.entity,
-            "channels": this.config.channels
-          },
-          "title": " ",
-          "size": "wide",
-          "style": "--popup-border-radius: 15px;"
-        }
-      }
-    };
-    this.ownerDocument.querySelector("home-assistant").dispatchEvent(popupEvent);
   }
 
   _click_button(button: string) {
