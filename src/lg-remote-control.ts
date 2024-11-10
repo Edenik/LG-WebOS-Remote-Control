@@ -716,13 +716,15 @@ class LgRemoteControl extends LitElement {
         ${this.config.buttons.map(button => this._renderCustomButton(button, stateObj))}
         ${this.config.shortcuts ?
         html`
-            <button class="btn_source ripple" @click=${() => this._show_shortcuts = true}>
-              <ha-icon style="height: 70%; width: 70%;" icon="mdi:format-list-bulleted-square"/>
+            <button title="Shortcuts" class="btn_source ripple" @click=${() => this._show_shortcuts = true}>
+              <ha-icon icon="mdi:gesture-tap-button"/>
             </button>
           ` : ''}
         ${debuggerEnabled ?
         html`
-            <button class="btn_source ripple" @click=${() => this._show_debug = true}>DBG</button>
+            <button title="Debug" class="btn_source ripple" @click=${() => this._show_debug = true}>
+              <ha-icon icon="mdi:bug-check"/>
+            </button>
           ` : ''}
       </div>
     `;
@@ -761,7 +763,6 @@ class LgRemoteControl extends LitElement {
     }
   }
 
-  // Custom button renderer - handles individual script/scene buttons
   _renderCustomButton(button: ButtonConfig, stateObj: HassEntity) {
     // Check if this should render as text instead of icon/image
     const willRenderText = this._willRenderText(button);
@@ -775,7 +776,7 @@ class LgRemoteControl extends LitElement {
 
     return html`
       <button 
-        class="btn_source ripple ${willRenderText ? 'btn_text' : ''} ${isCurrentSource ? 'active' : ''}"
+        class="btn_source ripple ${isCurrentSource ? 'active' : ''}"
         style="${styleString}"
         title="${button.tooltip ?? ''}"
         @click=${() => { this._handleButtonClick(button) }}

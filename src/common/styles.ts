@@ -104,16 +104,21 @@ button:focus {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 28% 6% 16% 16% 16% 16% 6%;
   height: var(--remotewidth);
-  grid-template-areas: "bnt title"". .""tv tv-opt""tv-phone opt""hdmi line""phone bluetooth"}
+  grid-template-areas: "bnt title"". .""tv tv-opt""tv-phone opt""hdmi line""phone bluetooth"
+}
 .grid-container-color_btn, .grid-container-source {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  grid-template-rows: auto;
-  background-color: transparent;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem; /* Adjust gap size as needed */
   width: calc(var(--remotewidth)/1.03);
   overflow: hidden;
   margin: auto;
 }
+
+.grid-container-source > * {
+  flex: 0 0 auto;
+}
+
 .grid-container-color_btn {
   height: calc(var(--remotewidth)/10);
 }
@@ -307,13 +312,12 @@ ha-icon {
   place-items: center;
   cursor: pointer;
 }
-.btn_text {
-  width: unset !important;
-}
+
 .btn_source {
-  width: calc(var(--remotewidth)/5.9);
+  min-width: calc(var(--remotewidth)/5.9);
   height: calc(var(--remotewidth)/8.125);
   margin: calc(var(--remotewidth)/18.57) auto calc(var(--remotewidth)/20);
+  padding-inline: 10px;
 }
 
 .btn_source.active {
