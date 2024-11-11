@@ -684,18 +684,11 @@ class LgRemoteControlEditor extends LitElement {
     </div>
       </div>
         ` : this._selectedIconType === IconType.img ? html`
-      < div class="field-group" >
+      <div class="field-group">
         <label>Image URL: ${button.img ? renderImage(button.img, button.color) : ''} </label>
-          < input
-    type = "text"
-    name = "img"
-    class="input-field"
-      .value = ${button.img || ''}
-    @change=${this.handleItemUpdate}
-    placeholder = "https://example.com/image.png"
-      />
-      </div>
-        ` : ''}
+          <input type="text" name="img" class="input-field" .value=${button.img || ''}
+                 @change=${this.handleItemUpdate} placeholder="https://example.com/image.png"/>
+      </div>` : ''}
   
         <!-- Color inputs section -->
         <div class="form-group">
