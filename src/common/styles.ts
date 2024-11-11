@@ -493,7 +493,7 @@ ha-icon {
 }
 
   .spotify-container {
-    width: 100%;
+    width: calc(var(--remotewidth) - 20px);
     margin: 8px 0;
     padding: 8px;
     background: rgba(0, 0, 0, 0.05);

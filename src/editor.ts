@@ -6,7 +6,7 @@ import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
 import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton, SpotifyLocation } from "./common/types";
-import { capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
+import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
 @customElement(EDITOR_CARD_TAG_NAME)
@@ -14,6 +14,7 @@ class LgRemoteControlEditor extends LitElement {
   private _config: LGRemoteControlConfig;
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
+  private _originalItem: ButtonConfig | null = null;
   private _activeTab: ButtonType = ButtonType.buttons;
   private _isAddingNew: boolean = false;
   private _isEditing: boolean = false;
@@ -215,30 +216,24 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   private handleEdit(type: ButtonType, index: number) {
-    console.log(`Edit mode, type: ${type}, index: ${index}`)
+    // Store the original item state
+    const originalButton = this._config[type][index];
+    this._originalItem = structuredClone(originalButton);
+
     // Set the selected item and display the edit form
-    const button = this._config[type][index];
-    this._selectedItem = { button, index, type };
+    this._selectedItem = { button: originalButton, index, type };
     this._isFormDirty = false;
     this._activeTab = type;
     this._isEditing = true;
 
-    console.log({ button, selected: this._selectedItem })
     // Determine initial icon type
-    if (button.svg) this._selectedIconType = IconType.svg;
-    else if (button.icon) this._selectedIconType = IconType.mdi;
-    else if (button.img) this._selectedIconType = IconType.img;
+    if (originalButton.svg) this._selectedIconType = IconType.svg;
+    else if (originalButton.icon) this._selectedIconType = IconType.mdi;
+    else if (originalButton.img) this._selectedIconType = IconType.img;
     else this._selectedIconType = IconType.none;
 
     // Force update
     this.requestUpdate();
-
-    // Dispatch config change event
-    this.dispatchEvent(new CustomEvent("config-changed", {
-      detail: { config: this._config },
-      bubbles: true,
-      composed: true,
-    }));
   }
 
   private handleItemUpdate(ev: Event) {
@@ -268,6 +263,11 @@ class LgRemoteControlEditor extends LitElement {
           ...this._selectedItem,
           button: newConfig[type][index]
         };
+
+        // Compare with original state to determine if there are actual changes
+        if (this._originalItem) {
+          this._isFormDirty = !areObjectsEqual(newConfig[type][index], this._originalItem);
+        }
       } catch (error) {
         console.error(error)
       }
@@ -382,23 +382,75 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   private handleBack() {
-    if (this._isAddingNew && !this._isFormDirty && this._selectedItem) {
-      // Remove the last added item since no changes were made
+    if (!this._selectedItem) {
+      this._resetEditorState();
+      return;
+    }
+
+    const { type, index } = this._selectedItem;
+    const currentItem: ButtonConfig = this._config[type][index];
+    const errors: ValidationError[] = validateButtonConfig(currentItem, type);
+
+    // Determine if we're in add mode or edit mode with changes
+    const isAddMode = this._isAddingNew;
+
+    // If there are validation errors or unsaved changes
+    if (errors.length > 0) {
+      if (errors.length > 0) {
+        // Case 1: Validation errors exist
+        const validationMessage = formatValidationErrors(errors);
+        const message = isAddMode
+          ? `The following validation errors were found:\n\n${validationMessage}\n\nThis item will be deleted if you continue.`
+          : `The following validation errors were found:\n\n${validationMessage}\n\nYour changes will be discarded if you continue.`;
+        if (!window.confirm(message)) {
+          // User clicked Cancel - stay on the edit form
+          return;
+        }
+      }
+    }
+
+    // User either confirmed or there were no changes/errors
+    this._handleBackConfirmed(errors);
+  }
+
+  private _handleBackConfirmed(errors: ValidationError[]) {
+    if (this._isAddingNew) {
+      // In add mode, remove the item
       const newConfig = structuredClone(this._config);
-      const { type, index } = this._selectedItem;
+      const { type, index } = this._selectedItem!;
 
       if (newConfig[type] && newConfig[type].length > index) {
+        // Remove the item
         newConfig[type].splice(index, 1);
         this._config = newConfig;
 
+        // Dispatch config change event
         this.dispatchEvent(new CustomEvent("config-changed", {
           detail: { config: newConfig },
           bubbles: true,
           composed: true,
         }));
       }
+    } else if (this._isFormDirty && this._originalItem && this._selectedItem) {
+      // In edit mode with changes, revert to the original state
+      const newConfig = structuredClone(this._config);
+      const { type, index } = this._selectedItem;
+
+      newConfig[type][index] = errors.length ? structuredClone(this._originalItem) : this._selectedItem.button;
+      this._config = newConfig;
+
+      // Dispatch config change event with restored state
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      }));
     }
 
+    this._resetEditorState();
+  }
+
+  private _resetEditorState() {
     // Preserve the current tab when going back
     const currentTab = this._selectedItem?.type === ButtonType.shortcuts ? ButtonType.shortcuts : ButtonType.buttons;
 
@@ -408,6 +460,7 @@ class LgRemoteControlEditor extends LitElement {
     this._isFormDirty = false;
     this._activeTab = currentTab;
     this._selectedIconType = IconType.mdi;
+    this._originalItem = null; // Clear the original item state
 
     this.requestUpdate();
   }

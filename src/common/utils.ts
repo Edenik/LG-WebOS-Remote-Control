@@ -43,3 +43,7 @@ export const isRTL = (text: string = ""): boolean => {
   const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF]/;
   return rtlRegex.test(text);
 }
+
+export const areObjectsEqual = (obj1: any, obj2: any): boolean => {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+}
