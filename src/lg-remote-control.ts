@@ -465,7 +465,7 @@ class LgRemoteControl extends LitElement {
           title="${shortcut.tooltip ?? ''}" 
           style="width: 95%; ${willRenderText ? `color: ${shortcut.text_color ?? ''};` : ''}"
           @click=${() => {
-          this._run_script(shortcut.script_id, shortcut.data);
+          this._run_script(shortcut.script_id, shortcut.data, shortcut.action);
           this._show_shortcuts = false;
         }}
         > 
@@ -656,7 +656,7 @@ class LgRemoteControl extends LitElement {
         <!-- Mute button -->
         <button class="btn ripple" 
           style="color:${isMuted ? 'red' : ''}; height: 100%;" 
-          @click=${() => customMute && customMute.script_id ? this._run_script(customMute.script_id) : customMute && customMute.scene_id ? this._run_scene(customMute.scene_id) : this._click_button("MUTE")}>
+          @click=${() => customMute && customMute.script_id ? this._run_script(customMute.script_id, {}, ButtonAction.script) : customMute && customMute.scene_id ? this._run_scene(customMute.scene_id) : this._click_button("MUTE")}>
           <span class="${isMuted ? 'blink' : ''}">
             <ha-icon icon="mdi:volume-mute"/>
           </span>
@@ -801,8 +801,8 @@ class LgRemoteControl extends LitElement {
   _handleButtonClick(button: ButtonConfig) {
     if (button.action === 'source' && button.source) {
       this._select_source(button.source);
-    } else if (button.action === 'script' && button.script_id) {
-      this._run_script(button.script_id, button.data);
+    } else if ([ButtonAction.script, ButtonAction.pyscript, ButtonAction.python_script].includes(button.action) && button.script_id) {
+      this._run_script(button.script_id, button.data, button.action);
     } else if (button.action === 'scene' && button.scene_id) {
       this._run_scene(button.scene_id, button.data);
     } else if (button.action === 'automation' && button.automation_id) {
@@ -875,11 +875,11 @@ class LgRemoteControl extends LitElement {
       const customVolumeUpScript = (this.config.replace_buttons ?? []).find((item) => item.button_name.toLowerCase() === "volume_up")
 
       if (service.toLowerCase() === "volume_down" && customVolumeDownScript) {
-        if (customVolumeDownScript.script_id) { this._run_script(customVolumeDownScript.script_id) }
+        if (customVolumeDownScript.script_id) { this._run_script(customVolumeDownScript.script_id, {}, ButtonAction.script) }
         else if (customVolumeDownScript.scene_id) { this._run_scene(customVolumeDownScript.scene_id) }
         else if (customVolumeDownScript.automation_id) { this._run_automation(customVolumeDownScript.automation_id) }
       } else if (service.toLowerCase() === "volume_up" && customVolumeUpScript) {
-        if (customVolumeUpScript.script_id) { this._run_script(customVolumeUpScript.script_id) }
+        if (customVolumeUpScript.script_id) { this._run_script(customVolumeUpScript.script_id, {}, ButtonAction.script) }
         else if (customVolumeUpScript.scene_id) { this._run_scene(customVolumeUpScript.scene_id) }
         else if (customVolumeUpScript.automation_id) { this._run_automation(customVolumeUpScript.automation_id) }
       }
@@ -1036,7 +1036,7 @@ class LgRemoteControl extends LitElement {
     }
   }
 
-  _run_action(action: ButtonAction.automation | ButtonAction.scene | ButtonAction.script, actionId: string, data: Record<string, any> = {}) {
+  _run_action(action: ButtonAction, actionId: string, data: Record<string, any> = {}) {
     const domain = action;
     const service = actionId;
     const serviceData = { entity_id: `${domain}.${actionId}`, ...data };
@@ -1044,8 +1044,8 @@ class LgRemoteControl extends LitElement {
     this.hass.callService(domain, service, serviceData);
   }
 
-  _run_script(scriptId: string, data: Record<string, any> = {}) {
-    this._run_action(ButtonAction.script, scriptId, data);
+  _run_script(scriptId: string, data: Record<string, any> = {}, scriptAction: ButtonAction) {
+    this._run_action(scriptAction, scriptId, data);
   }
 
   _run_scene(sceneId: string, data: Record<string, any> = {}) {

@@ -101,9 +101,11 @@ export interface SelectedButton {
 
 export enum ButtonAction {
   source = "source",
-  script = "script",
   scene = "scene",
-  automation = "automation"
+  automation = "automation",
+  script = "script",
+  pyscript = "pyscript",
+  python_script = "python_script"
 }
 
 export enum ButtonType {
@@ -130,4 +132,10 @@ export enum SpotifyLocation {
   BOTTOM = "bottom",
   ABOVE_BUTTONS = "above_buttons",
   UNDER_BUTTONS = "under_buttons"
+}
+
+export enum ScriptAction {
+  script = "script",
+  pyscript = "pyscript",
+  python_script = "python_script"
 }

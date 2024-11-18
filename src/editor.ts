@@ -5,7 +5,7 @@ import { customElement } from "lit/decorators.js";
 import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton, SpotifyLocation } from "./common/types";
+import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, ScriptAction, SelectedButton, SpotifyLocation } from "./common/types";
 import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
 
@@ -795,7 +795,17 @@ class LgRemoteControlEditor extends LitElement {
         case ButtonAction.script:
           button.script_id = value;
           button.data = {};
-          button.tooltip = `Run script: ${this.getScriptServices()[value.replace("script.", "")]?.name || value}`;
+          button.tooltip = `Run script: ${this.getScriptServices(ScriptAction.script)[value.replace("script.", "")]?.name || value}`;
+          break;
+        case ButtonAction.pyscript:
+          button.script_id = value;
+          button.data = {};
+          button.tooltip = `Run pyscript: ${this.getScriptServices(ScriptAction.pyscript)[value.replace("pyscript.", "")]?.name || value}`;
+          break;
+        case ButtonAction.python_script:
+          button.script_id = value;
+          button.data = {};
+          button.tooltip = `Run python script: ${this.getScriptServices(ScriptAction.python_script)[value.replace("python_script.", "")]?.name || value}`;
           break;
         case ButtonAction.scene:
           button.scene_id = value;
@@ -846,7 +856,7 @@ class LgRemoteControlEditor extends LitElement {
 
       case ButtonAction.script:
         const scriptValue = button.script_id ? this.fixSelectionValue(ButtonAction.script, button.script_id) : '';
-        options = this.getScriptsList().map(script => {
+        options = this.getScriptsList(ScriptAction.script).map(script => {
           const fullValue = this.fixSelectionValue(ButtonAction.script, script.id);
           return {
             value: fullValue,
@@ -854,6 +864,30 @@ class LgRemoteControlEditor extends LitElement {
           };
         });
         currentValue = scriptValue;
+        break;
+
+      case ButtonAction.pyscript:
+        const pyScriptValue = button.script_id ? this.fixSelectionValue(ButtonAction.pyscript, button.script_id) : '';
+        options = this.getScriptsList(ScriptAction.pyscript).map(script => {
+          const fullValue = this.fixSelectionValue(ButtonAction.pyscript, script.id);
+          return {
+            value: fullValue,
+            label: script.name,
+          };
+        });
+        currentValue = pyScriptValue;
+        break;
+
+      case ButtonAction.python_script:
+        const pythonScriptValue = button.script_id ? this.fixSelectionValue(ButtonAction.python_script, button.script_id) : '';
+        options = this.getScriptsList(ScriptAction.python_script).map(script => {
+          const fullValue = this.fixSelectionValue(ButtonAction.python_script, script.id);
+          return {
+            value: fullValue,
+            label: script.name,
+          };
+        });
+        currentValue = pythonScriptValue;
         break;
 
       case ButtonAction.scene:
@@ -899,8 +933,8 @@ class LgRemoteControlEditor extends LitElement {
             </option>
           `)}
         </select>
-        ${button.action === ButtonAction.script && button.script_id ?
-        this.renderScriptFields(button.script_id, button.data) : ''}
+        ${[ButtonAction.pyscript, ButtonAction.script, ButtonAction.python_script].includes(button.action) && button.script_id ?
+        this.renderScriptFields(button.script_id, (button.action as any as ScriptAction), button.data) : ''}
       </div>
     `;
   }
@@ -1427,22 +1461,22 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private getScriptServices(): Record<string, any> {
-    return this.hass?.services?.script || {};
+  private getScriptServices(field: ScriptAction): Record<string, any> {
+    return this.hass?.services?.[field] || {};
   }
 
-  private getScriptsList(): Array<{ id: string, name: string }> {
-    const scripts = this.getScriptServices();
+  private getScriptsList(field: ScriptAction): Array<{ id: string, name: string }> {
+    const scripts = this.getScriptServices(field);
     return Object.entries(scripts).map(([id, service]) => ({
       id,
       name: service.name || id
     })).sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  private renderScriptFields(scriptId: string, currentData: Record<string, any> = {}): TemplateResult | '' {
+  private renderScriptFields(scriptId: string, scriptField: ScriptAction, currentData: Record<string, any> = {}): TemplateResult | '' {
     if (!scriptId) return '';
 
-    const scriptService = this.getScriptServices()[scriptId];
+    const scriptService = this.getScriptServices(scriptField)[scriptId];
     if (!scriptService?.fields) return '';
 
     return html`
