@@ -1,13 +1,30 @@
-import { ButtonAction, ButtonConfig, ButtonType } from "./types";
+import { HassService } from "home-assistant-js-websocket";
+import { ButtonAction, ButtonConfig, HomeAssistantFixed } from "./types";
 
 export interface ValidationError {
     field: string;
     message: string;
 }
 
+export interface ValidationContext {
+    hass?: HomeAssistantFixed;
+}
+
+function getRequiredFields(action: ButtonAction, actionId: string, context?: ValidationContext): string[] {
+    if (!context?.hass) return [];
+    if (action === ButtonAction.source) { return; }
+    const actionName = actionId.replace(`${action}.`, "");
+    const actionConfig: HassService = context.hass.services[action][actionName];
+
+    console.log({ actionName, actionConfig })
+    return Object.entries(actionConfig?.fields || {})
+        .filter(([_, field]: [string, any]) => field.required)
+        .map(([fieldName]) => fieldName);
+}
+
 export function validateButtonConfig(
     config: ButtonConfig,
-    type: ButtonType
+    context?: ValidationContext
 ): ValidationError[] {
     const errors: ValidationError[] = [];
 
@@ -37,6 +54,17 @@ export function validateButtonConfig(
         });
     }
 
+    const updateMissingFields = (requiredMissingFields: string[]) => {
+        requiredMissingFields.forEach(field => {
+            if (!config.data?.[field]) {
+                errors.push({
+                    field: `data.${field}`,
+                    message: `Required automation parameter: ${field}`
+                });
+            }
+        });
+    }
+
     // Check action-specific requirements
     if (config.action) {
         switch (config.action) {
@@ -44,8 +72,13 @@ export function validateButtonConfig(
                 if (!config.script_id) {
                     errors.push({
                         field: 'script_id',
-                        message: 'script_id is required for script actions'
+                        message: 'Script is required'
                     });
+                } else {
+                    // Check required script parameters
+                    const requiredScriptFields = getRequiredFields(ButtonAction.script, config.script_id, context);
+                    console.log({ requiredScriptFields });
+                    updateMissingFields(requiredScriptFields);
                 }
                 break;
 
@@ -53,8 +86,13 @@ export function validateButtonConfig(
                 if (!config.scene_id) {
                     errors.push({
                         field: 'scene_id',
-                        message: 'scene_id is required for scene actions'
+                        message: 'Scene is required'
                     });
+                } else {
+                    // Check required scene parameters
+                    const requiredSceneFields = getRequiredFields(ButtonAction.scene, config.scene_id, context);
+                    console.log({ requiredSceneFields });
+                    updateMissingFields(requiredSceneFields);
                 }
                 break;
 
@@ -62,8 +100,13 @@ export function validateButtonConfig(
                 if (!config.automation_id) {
                     errors.push({
                         field: 'automation_id',
-                        message: 'automation_id is required for automation actions'
+                        message: 'Automation is required'
                     });
+                } else {
+                    // Check required automation parameters
+                    const requiredAutomationFields = getRequiredFields(ButtonAction.automation, config.automation_id, context);
+                    console.log({ requiredAutomationFields });
+                    updateMissingFields(requiredAutomationFields);
                 }
                 break;
 
@@ -71,7 +114,7 @@ export function validateButtonConfig(
                 if (!config.source) {
                     errors.push({
                         field: 'source',
-                        message: 'source is required for source actions'
+                        message: 'Source is required'
                     });
                 }
                 break;
@@ -87,14 +130,33 @@ export function validateButtonConfig(
     return errors;
 }
 
-// Helper function to format validation errors into a readable message
+// Format validation errors into human-readable messages
 export function formatValidationErrors(errors: ValidationError[]): string {
     if (errors.length === 0) {
         return 'Configuration is valid';
     }
 
-    return `Invalid configuration, missing or invalid fields:\n${errors
-        .map(error => `- ${error.message}`)
-        .join('\n')}`;
-}
+    // Group errors by field type
+    const groupedErrors = errors.reduce((acc, error) => {
+        if (error.field.startsWith('data.')) {
+            acc.parameters = acc.parameters || [];
+            acc.parameters.push(error.message);
+        } else {
+            acc.general = acc.general || [];
+            acc.general.push(error.message);
+        }
+        return acc;
+    }, {} as { general?: string[], parameters?: string[] });
 
+    let message = '';
+
+    if (groupedErrors.general?.length) {
+        message += `General Issues:\n${groupedErrors.general.map(msg => `• ${msg}`).join('\n')}\n`;
+    }
+
+    if (groupedErrors.parameters?.length) {
+        message += `\nParameter Issues:\n${groupedErrors.parameters.map(msg => `• ${msg}`).join('\n')}`;
+    }
+
+    return message;
+}

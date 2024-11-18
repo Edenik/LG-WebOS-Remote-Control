@@ -268,25 +268,23 @@ class LgRemoteControlEditor extends LitElement {
         if (this._originalItem) {
           this._isFormDirty = !areObjectsEqual(newConfig[type][index], this._originalItem);
         }
+
+        // Always update the config
+        this._config = newConfig;
+
+        // Always dispatch config changes
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }));
+
       } catch (error) {
-        console.error(error)
+        console.error(error);
       }
     }
 
-    this._config = newConfig;
     this.requestUpdate();
-
-    // Only dispatch config-changed event if we're in edit mode and not adding new
-    if (!this._isAddingNew) {
-      const event = new CustomEvent("config-changed", {
-        detail: { config: newConfig },
-        bubbles: true,
-        composed: true,
-      });
-
-      this.debugLog({ hass: this.hass, event, fn: "handleItemUpdate" })
-      this.dispatchEvent(event);
-    }
   }
 
   private handleAddItem(type: ButtonType) {
@@ -389,7 +387,7 @@ class LgRemoteControlEditor extends LitElement {
 
     const { type, index } = this._selectedItem;
     const currentItem: ButtonConfig = this._config[type][index];
-    const errors: ValidationError[] = validateButtonConfig(currentItem, type);
+    const errors: ValidationError[] = validateButtonConfig(currentItem, { hass: this.hass });
 
     // Determine if we're in add mode or edit mode with changes
     const isAddMode = this._isAddingNew;
@@ -414,17 +412,25 @@ class LgRemoteControlEditor extends LitElement {
   }
 
   private _handleBackConfirmed(errors: ValidationError[]) {
-    if (this._isAddingNew) {
-      // In add mode, remove the item
-      const newConfig = structuredClone(this._config);
-      const { type, index } = this._selectedItem!;
+    const newConfig = structuredClone(this._config);
+    const { type, index } = this._selectedItem!;
 
-      if (newConfig[type] && newConfig[type].length > index) {
-        // Remove the item
+    if (this._isAddingNew) {
+      // In add mode, only remove the item if there are validation errors
+      if (errors.length > 0 && newConfig[type] && newConfig[type].length > index) {
+        // Remove the invalid item
         newConfig[type].splice(index, 1);
         this._config = newConfig;
 
-        // Dispatch config change event
+        // Dispatch config change event to remove invalid item
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }));
+      } else if (errors.length === 0) {
+        // Item is valid, keep it and dispatch the config
+        this._config = newConfig;
         this.dispatchEvent(new CustomEvent("config-changed", {
           detail: { config: newConfig },
           bubbles: true,
@@ -432,19 +438,18 @@ class LgRemoteControlEditor extends LitElement {
         }));
       }
     } else if (this._isFormDirty && this._originalItem && this._selectedItem) {
-      // In edit mode with changes, revert to the original state
-      const newConfig = structuredClone(this._config);
-      const { type, index } = this._selectedItem;
+      // In edit mode with changes, revert to original state only if there are errors
+      if (errors.length > 0) {
+        newConfig[type][index] = structuredClone(this._originalItem);
+        this._config = newConfig;
 
-      newConfig[type][index] = errors.length ? structuredClone(this._originalItem) : this._selectedItem.button;
-      this._config = newConfig;
-
-      // Dispatch config change event with restored state
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: newConfig },
-        bubbles: true,
-        composed: true,
-      }));
+        // Dispatch config change event with restored state
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }));
+      }
     }
 
     this._resetEditorState();
@@ -558,7 +563,7 @@ class LgRemoteControlEditor extends LitElement {
       else this._selectedIconType = IconType.svg;
     }
 
-    const errors: ValidationError[] = validateButtonConfig(this._config[type][this._selectedItem.index], type)
+    const errors: ValidationError[] = validateButtonConfig(this._config[type][this._selectedItem.index], { hass: this.hass })
 
     return html`
       <div class="section-header">
@@ -779,7 +784,7 @@ class LgRemoteControlEditor extends LitElement {
     if (newConfig[type] && index !== -1) {
       const button = newConfig[type][index];
 
-      // Clear previous action data
+      // Clear previous action data and parameters
       delete button.script_id;
       delete button.scene_id;
       delete button.source;
@@ -794,15 +799,17 @@ class LgRemoteControlEditor extends LitElement {
           break;
         case ButtonAction.script:
           button.script_id = value;
-          button.data = {};
-          button.tooltip = `Run script: ${this.getScriptServices()[value.replace("script.", "")]?.name || value}`;
+          button.data = {}; // Initialize empty parameters object
+          button.tooltip = `Run script: ${this.getActionServices(ButtonAction.script)[value.replace("script.", "")]?.name || value}`;
           break;
         case ButtonAction.scene:
           button.scene_id = value;
+          button.data = {}; // Initialize empty parameters object
           button.tooltip = `Run scene: ${this.hass.states[value]?.attributes.friendly_name || value}`;
           break;
         case ButtonAction.automation:
           button.automation_id = value;
+          button.data = {}; // Initialize empty parameters object
           button.tooltip = `Run automation: ${this.hass.states[value]?.attributes.friendly_name || value}`;
           break;
       }
@@ -813,8 +820,6 @@ class LgRemoteControlEditor extends LitElement {
       };
 
       this._config = newConfig;
-
-      // Force a re-render
       this.requestUpdate();
 
       this.dispatchEvent(new CustomEvent("config-changed", {
@@ -829,6 +834,63 @@ class LgRemoteControlEditor extends LitElement {
     if (!value) return value;
     if (action !== ButtonAction.source && !value.startsWith(action)) return `${action}.${value}`;
     return `${value}`;
+  }
+
+  private getActionParameters(action: ButtonAction, id: string): Record<string, any> {
+    switch (action) {
+      case ButtonAction.script:
+        const scriptService = this.getActionServices(ButtonAction.script)[id];
+        return scriptService?.fields || {};
+
+      case ButtonAction.scene:
+        const sceneEntity = this.hass.states[`scene.${id}`];
+        return sceneEntity?.attributes?.parameters || {};
+
+      case ButtonAction.automation:
+        const automationEntity = this.hass.states[`automation.${id}`];
+        return automationEntity?.attributes?.parameters || {};
+
+      default:
+        return {};
+    }
+  }
+
+  private renderActionParameters(button: ButtonConfig): TemplateResult {
+    let parameters = {};
+
+    if (button.action === ButtonAction.script && button.script_id) {
+      parameters = this.getActionParameters(ButtonAction.script, button.script_id);
+    } else if (button.action === ButtonAction.scene && button.scene_id) {
+      parameters = this.getActionParameters(ButtonAction.scene, button.scene_id);
+    } else if (button.action === ButtonAction.automation && button.automation_id) {
+      parameters = this.getActionParameters(ButtonAction.automation, button.automation_id);
+    }
+
+    if (Object.keys(parameters).length === 0) {
+      return html``;
+    }
+
+    return html`
+      <div class="parameters-group">
+        <label class="form-group-label">Parameters:</label>
+        ${Object.entries(parameters).map(([key, field]: [string, any]) => html`
+          <div class="field-group">
+            <label>${field.name || key}${field.required ? ' *' : ''}:</label>
+            <input 
+              type="text" 
+              name="data.${key}"
+              class="input-field"
+              placeholder="${field.example || ''}"
+              .value=${(button.data && button.data[key]) || ''}
+              @change=${this.handleItemUpdate}
+            />
+            ${field.description ? html`
+              <div class="field-description">${field.description}</div>
+            ` : ''}
+          </div>
+        `)}
+      </div>
+    `;
   }
 
   private renderActionSelection(button: ButtonConfig): TemplateResult {
@@ -899,8 +961,7 @@ class LgRemoteControlEditor extends LitElement {
             </option>
           `)}
         </select>
-        ${button.action === ButtonAction.script && button.script_id ?
-        this.renderScriptFields(button.script_id, button.data) : ''}
+        ${this.renderActionFields(button.script_id || button.scene_id || button.automation_id, button.action, button.data)}
       </div>
     `;
   }
@@ -1427,40 +1488,45 @@ class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private getScriptServices(): Record<string, any> {
-    return this.hass?.services?.script || {};
+  private getActionServices(action: ButtonAction): Record<string, any> {
+    return this.hass?.services[action] || {};
   }
 
   private getScriptsList(): Array<{ id: string, name: string }> {
-    const scripts = this.getScriptServices();
+    const scripts = this.getActionServices(ButtonAction.script);
     return Object.entries(scripts).map(([id, service]) => ({
       id,
       name: service.name || id
     })).sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  private renderScriptFields(scriptId: string, currentData: Record<string, any> = {}): TemplateResult | '' {
-    if (!scriptId) return '';
+  private renderActionFields(entityId: string, action: ButtonAction, data: Record<string, any> = {}): TemplateResult | '' {
+    if (!entityId) return '';
 
-    const scriptService = this.getScriptServices()[scriptId];
+    const scriptService = this.getActionServices(action)[entityId.replace(`${action}.`, "")];
+    console.log({ scriptService, entityId, action, data, services: this.hass?.services, servicesItems: this.hass?.services[action] })
     if (!scriptService?.fields) return '';
 
     return html`
+      <div class="parameters-section">
+        <h3>Script Parameters</h3>
         ${Object.entries(scriptService.fields).map(([fieldName, field]: [string, any]) => html`
-            <div class="field-group">
-                <label>${field.name || fieldName}${field.required ? ' *' : ''}:</label>
-                <input 
-                    type="text" 
-                    name="data.${fieldName}"
-                    placeholder="${field.example || ''}"
-                    .value=${currentData[fieldName] || ''}
-                    @change=${(ev: Event) => this.handleScriptFieldUpdate(ev, fieldName)}
-                />
-                ${field.description ? html`
-                    <div class="field-description">${field.description}</div>
-                ` : ''}
-            </div>
+          <div class="field-group">
+            <label>${field.name || fieldName}${field.required ? ' *' : ''}:</label>
+            <input 
+              class="input-field"
+              type="text" 
+              name="data.${fieldName}"
+              placeholder="${field.example || ''}"
+              .value=${data[fieldName] || ''}
+              @change=${(ev: Event) => this.handleScriptFieldUpdate(ev, fieldName)}
+            />
+            ${field.description ? html`
+              <div class="field-description">${field.description}</div>
+            ` : ''}
+          </div>
         `)}
+      </div>
     `;
   }
 
@@ -1503,6 +1569,28 @@ class LgRemoteControlEditor extends LitElement {
 
   static get styles() {
     return css`
+
+        .parameters-section {
+          margin-top: 16px;
+          padding: 16px;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          background: var(--secondary-background-color);
+        }
+
+        .parameters-section h3 {
+          margin: 0 0 16px 0;
+          font-size: 16px;
+          color: var(--primary-text-color);
+        }
+
+        .field-description {
+          font-size: 12px;
+          color: var(--secondary-text-color);
+          margin-top: 4px;
+          font-style: italic;
+        }
+          
         /* Container and Layout Styles */
         .container {
             display: flex;

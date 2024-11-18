@@ -1037,11 +1037,10 @@ class LgRemoteControl extends LitElement {
   }
 
   _run_action(action: ButtonAction.automation | ButtonAction.scene | ButtonAction.script, actionId: string, data: Record<string, any> = {}) {
-    const domain = action;
-    const service = actionId;
-    const serviceData = { entity_id: `${domain}.${actionId}`, ...data };
-    this._logAction(domain, service, serviceData);
-    this.hass.callService(domain, service, serviceData);
+    const service = actionId.replaceAll(`${action}.`, "");
+    const serviceData = { entity_id: `${action}.${service}`, ...data };
+    this._logAction(action, service, serviceData);
+    this.hass.callService(action, service, serviceData);
   }
 
   _run_script(scriptId: string, data: Record<string, any> = {}) {
