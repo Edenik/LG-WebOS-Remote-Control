@@ -2,17 +2,18 @@ import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./common/icons";
-import { renderButtonMedia, renderShape } from './common/media-renderer';
-import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform, isRTL } from "./common/utils";
-import { CARD_VERSION, Components } from "./constants/constants";
-import "./editor";
-import { globalStyles } from './styles/styles';
+import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "../../common/icons";
+import { renderButtonMedia, renderShape } from '../../common/media-renderer';
+import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform, isRTL } from "../../common/utils";
+import { CARD_VERSION, Components } from "../../constants/constants";
+import { globalStyles } from '../../styles/styles';
+import { ButtonAction, ButtonConfig, SoundButton } from '../../types/buttons';
+import { LGRemoteControlConfig, SpotifyLocation } from '../../types/config';
+import { HomeAssistantFixed, WindowWithCards } from '../../types/home-assistant';
 
-import './components/spotify/SpotifyDisplay';
-import { ButtonAction, ButtonConfig, SoundButton } from './types/buttons';
-import { LGRemoteControlConfig, SpotifyLocation } from './types/config';
-import { HomeAssistantFixed, WindowWithCards } from './types/home-assistant';
+// import components
+import "../Editor/Editor";
+import '../Spotify/SpotifyDisplay';
 
 const line1 = '  LG WebOS Remote Control Card  ';
 const logger = (title: string, log: any) => {

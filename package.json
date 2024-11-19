@@ -1,6 +1,6 @@
 {
     "name": "lg-remote-card",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "description": "LG Remote card",
     "keywords": [
         "home-assistant",
@@ -44,7 +44,7 @@
     "scripts": {
         "start": "rollup -c rollup.config.mjs --watch",
         "build": "npm run rollup && npm run add-version",
-        "add-version": "cross-var replace-in-file \"@LG_REMOTE_CONTROL_CARD_VERSION_PLACEHOLDER@\" \"$npm_package_version\" \"dist/lg-remote-control.js\"",
+        "add-version": "cross-var replace-in-file \"@LG_REMOTE_CONTROL_CARD_VERSION_PLACEHOLDER@\" \"$npm_package_version\" \"dist/index.js\"",
         "rollup": "rollup -c"
     }
 }

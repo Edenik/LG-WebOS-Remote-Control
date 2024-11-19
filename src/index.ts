@@ -1,6 +1,6 @@
+import { LgRemoteControlEditor } from './components/Editor/Editor';
+import { LgRemoteControl } from './components/RemoteControl/RemoteControl';
 import { Components } from './constants/constants';
-import { LgRemoteControlEditor } from './editor';
-import { LgRemoteControl } from './lg-remote-control';
 
 // Make sure the custom elements are defined
 customElements.define(Components.RemoteControl, LgRemoteControl);

@@ -1,13 +1,13 @@
 import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
-import { getMdiIconsList } from "./common/icons";
-import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/media-renderer";
-import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
-import { AvReceiverdevicemap, Components } from "./constants/constants";
-import { ButtonAction, ButtonConfig, ButtonType, IconType, SelectedButton } from "./types/buttons";
-import { LGRemoteControlConfig, SpotifyLocation } from "./types/config";
-import { HomeAssistantFixed } from "./types/home-assistant";
-import { formatValidationErrors, validateButtonConfig, ValidationError } from "./utils/validation";
+import { getMdiIconsList } from "../../common/icons";
+import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "../../common/media-renderer";
+import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "../../common/utils";
+import { AvReceiverdevicemap, Components } from "../../constants/constants";
+import { ButtonAction, ButtonConfig, ButtonType, IconType, SelectedButton } from "../../types/buttons";
+import { LGRemoteControlConfig, SpotifyLocation } from "../../types/config";
+import { HomeAssistantFixed } from "../../types/home-assistant";
+import { formatValidationErrors, validateButtonConfig, ValidationError } from "../../utils/validation";
 
 @customElement(Components.RemoteControlEditor)
 export class LgRemoteControlEditor extends LitElement {
