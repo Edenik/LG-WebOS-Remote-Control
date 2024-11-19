@@ -20,6 +20,7 @@ export const MEDIA_PLAYER_FEATURES = {
     GROUPING: 524288
 };
 
+// check for usage
 export const PLAYER_STATES = {
     OFF: 'off',
     ON: 'on',
@@ -30,6 +31,7 @@ export const PLAYER_STATES = {
     UNAVAILABLE: 'unavailable'
 };
 
+// check for usage
 export const SOUND_OUTPUTS = {
     TV_SPEAKER: "tv_speaker",
     TV_EXTERNAL_SPEAKER: "tv_external_speaker",
@@ -41,6 +43,7 @@ export const SOUND_OUTPUTS = {
     BT_SOUNDBAR: "bt_soundbar"
 };
 
+// check for usage
 export const REMOTE_COMMANDS = {
     POWER: "POWER",
     MENU: "MENU",

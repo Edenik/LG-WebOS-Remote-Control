@@ -7,7 +7,7 @@ import {
   tvHeadphonesIcon,
   tvOpticIcon
 } from '../../common/icons';
-import { renderShape } from '../../common/mediaRenderer';
+import { renderShape } from '../../common/media-renderer';
 import { soundViewStyles } from '../../styles/view-styles';
 import { SoundButton } from '../../types/buttons';
 

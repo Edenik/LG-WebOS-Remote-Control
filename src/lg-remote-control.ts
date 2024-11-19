@@ -15,6 +15,7 @@ import './components/views/DefaultView';
 import './components/views/InputsView';
 import './components/views/ShortcutsView';
 import './components/views/SoundView';
+import { globalStyles } from './styles/global-styles';
 
 const logger = new Logger('LG Remote Control');
 
@@ -68,7 +69,7 @@ export class LgRemoteControl extends LitElement {
       ...config,
       spotify_location: config.spotify_location || SpotifyLocation.TOP
     };
-
+    logger.updateDebugEnabled(this.config.debug || false)
     logger.log('Configuration updated', { config: this.config });
   }
 
@@ -177,7 +178,9 @@ export class LgRemoteControl extends LitElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      globalStyles,
+      css`
       :host {
         --remotewidth: 260px;
       }
@@ -185,6 +188,6 @@ export class LgRemoteControl extends LitElement {
       .card {
         padding: var(--ha-card-padding, 16px);
       }
-    `;
+    `];
   }
 }

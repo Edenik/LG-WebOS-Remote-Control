@@ -1,6 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { renderButtonMedia, renderShape } from '../../common/mediaRenderer';
+import { renderButtonMedia, renderShape } from '../../common/media-renderer';
 import { shortcutsViewStyles } from '../../styles/view-styles';
 import { ButtonConfig } from '../../types/buttons';
 import { isRTL } from '../../utils/text-helpers';

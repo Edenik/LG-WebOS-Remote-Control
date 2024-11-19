@@ -1,6 +1,6 @@
-import { css } from 'lit';
+import { css, CSSResult } from 'lit';
 
-export const debugStyles = css`
+export const debugStyles: CSSResult = css`
   .debug-info {
     display: flex;
     flex-direction: column;
@@ -62,7 +62,7 @@ export const debugStyles = css`
   }
 `;
 
-export const spotifyStyles = css`
+export const spotifyStyles: CSSResult = css`
   .spotify-container {
     width: calc(var(--remotewidth) - 20px);
     margin: 8px 0;
@@ -140,7 +140,7 @@ export const spotifyStyles = css`
   }
 `;
 
-export const cardStyles = css`
+export const cardStyles: CSSResult = css`
   :host {
     display: block;
   }

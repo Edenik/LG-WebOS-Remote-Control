@@ -7,6 +7,10 @@ export class Logger {
         this.debugEnabled = debugEnabled;
     }
 
+    public updateDebugEnabled(enable: boolean) {
+        this.debugEnabled = enable;
+    }
+
     private formatMessage(title: string): string {
         return `%c${this.component}%c${title}`;
     }

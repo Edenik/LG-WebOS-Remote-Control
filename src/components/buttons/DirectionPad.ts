@@ -1,6 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { renderShape } from '../../common/mediaRenderer';
+import { renderShape } from '../../common/media-renderer';
 import { directionPadStyles } from '../../styles/button-styles';
 
 @customElement('direction-pad')

@@ -15,6 +15,7 @@ import './components/editor/BasicConfig';
 import './components/editor/ButtonsEditor';
 import './components/editor/IconSelector';
 import './components/editor/ValidationDisplay';
+import { globalStyles } from "./styles/global-styles";
 
 const logger = new Logger('Editor');
 
@@ -61,6 +62,7 @@ export class LgRemoteControlEditor extends LitElement {
       spotify_location: config.spotify_location || SpotifyLocation.TOP
     };
 
+    logger.updateDebugEnabled(this._config.debug || false)
     logger.log('Editor config updated', { config: this._config });
     this.validationContext.config = this._config;
   }
@@ -221,7 +223,9 @@ export class LgRemoteControlEditor extends LitElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      globalStyles,
+      css`
       .editor-container {
         display: flex;
         flex-direction: column;
@@ -256,6 +260,6 @@ export class LgRemoteControlEditor extends LitElement {
       .documentation-section a:hover {
         text-decoration: underline;
       }
-    `;
+    `];
   }
 }

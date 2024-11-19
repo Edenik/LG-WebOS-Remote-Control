@@ -7,13 +7,19 @@ import { isRTL } from '../../utils/text-helpers';
 @customElement('spotify-display')
 export class SpotifyDisplay extends LitElement {
   @property({ type: Object }) state!: SpotifyState;
-  @property({ type: String }) title = '';
+
+  private getSpotifyTitle(): string {
+    if (!this.state?.attributes?.media_title || !this.state?.attributes?.media_artist) {
+      return '';
+    }
+    return `${this.state.attributes.media_artist} - ${this.state.attributes.media_title}`;
+  }
+
 
   render() {
-    if (!this.title) return '';
-
-    const _isRTL = isRTL(this.title);
-    const isPaused = this.state?.state === "paused";
+    const title: string = this.getSpotifyTitle();
+    const _isRTL: boolean = isRTL(this.title);
+    const isPaused: boolean = this.state?.state === "paused";
 
     return html`
       <div class="spotify-container">
@@ -24,7 +30,7 @@ export class SpotifyDisplay extends LitElement {
               icon="mdi:spotify" 
               style="color: #1DB954; margin: ${_isRTL ? '0 0 0 8px' : '0 8px 0 0'}"
             ></ha-icon>
-            ${this.title}
+            ${title}
             ${this.state?.attributes?.entity_picture ? html`
               <img 
                 src="${this.state.attributes.entity_picture}" 

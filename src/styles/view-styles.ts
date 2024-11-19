@@ -1,76 +1,7 @@
-import { css } from 'lit';
+import { css, CSSResult } from 'lit';
 import { commonStyles } from './theme';
 
-export const viewStyles = css`
-  ${commonStyles}
-  
-  .grid-container-input {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: calc(var(--remotewidth)/2) calc(var(--remotewidth)/.5115);
-    background-color: transparent;
-    overflow: hidden;
-    width: var(--remotewidth);
-  }
-
-  .grid-item-input {
-    grid-column-start: 1;
-    grid-column-end: 4;
-    grid-row-start: 1;
-    grid-row-end: 3;
-    display: grid;
-    grid-template-columns: auto;
-    background-color: var(--remote-button-color);
-    margin: auto;
-    margin-top: calc(var(--remotewidth)/2.6);
-    overflow: scroll;
-    height: calc(var(--remotewidth)*2.01);
-    width: calc(var(--remotewidth) - 9%);
-    border-radius: calc(var(--remotewidth)/12);
-  }
-
-  .grid-item-input.debug-screen {
-    display: unset !important;
-  }
-
-  .grid-item-input::-webkit-scrollbar {
-    display: none;
-  }
-
-  .grid-container-source {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    width: calc(var(--remotewidth)/1.03);
-    overflow: hidden;
-    margin: auto;
-    padding-block: 1rem;
-  }
-
-  .btn-input, .btn-input-on {
-    font-size: calc(var(--remotewidth)/18.5);
-    height: calc(var(--remotewidth)/7.2226);
-    border-width: 0;
-    border-radius: calc(var(--remotewidth)/20);
-    margin: calc(var(--remotewidth)/47);
-    place-items: center;
-    display: list-item;
-    cursor: pointer;
-  }
-
-  .btn-input {
-    background-color: var(--remote-button-color);
-    color: var(--remote-text-color);
-    border: solid 2px var(--remote-color);
-  }
-
-  .btn-input-on {
-    background-color: var(--primary-color);
-    color: #fff;
-  }
-`;
-
-export const soundViewStyles = css`
+export const soundViewStyles: CSSResult = css`
   ${commonStyles}
   
   .grid-container-sound {
@@ -125,7 +56,7 @@ export const soundViewStyles = css`
   }
 `;
 
-export const debugViewStyles = css`
+export const debugViewStyles: CSSResult = css`
   ${commonStyles}
   
   .debug-info {
@@ -176,5 +107,114 @@ export const debugViewStyles = css`
   .debug-value {
     word-break: break-word;
     font-family: monospace;
+  }
+`;
+
+export const viewStyles: CSSResult = css`
+  ${commonStyles}
+  
+  .view-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .view-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .view-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .back-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-text-color);
+  }
+`;
+
+export const inputViewStyles: CSSResult = css`
+  ${viewStyles}
+
+  .grid-container-input {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: calc(var(--remotewidth)/2) calc(var(--remotewidth)/.5115);
+    background-color: transparent;
+    overflow: hidden;
+    width: var(--remotewidth);
+  }
+
+  .grid-item-input {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    display: grid;
+    background-color: var(--remote-button-color);
+    margin: auto;
+    margin-top: calc(var(--remotewidth)/2.6);
+    overflow: scroll;
+    height: calc(var(--remotewidth)*2.01);
+    width: calc(var(--remotewidth) - 9%);
+    border-radius: calc(var(--remotewidth)/12);
+  }
+
+  .input-button {
+    font-size: calc(var(--remotewidth)/18.5);
+    height: calc(var(--remotewidth)/7.2226);
+    border: none;
+    border-radius: calc(var(--remotewidth)/20);
+    margin: calc(var(--remotewidth)/47);
+    cursor: pointer;
+  }
+
+  .input-button.active {
+    background-color: var(--primary-color);
+    color: var(--text-primary-color);
+  }
+`;
+
+export const shortcutsViewStyles: CSSResult = css`
+  ${viewStyles}
+
+  .shortcuts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+  }
+
+  .shortcut-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--remote-button-color);
+    color: var(--remote-text-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .shortcut-button:hover {
+    background-color: var(--primary-color);
+    color: var(--text-primary-color);
+  }
+
+  .shortcut-button.rtl {
+    flex-direction: row-reverse;
+  }
+
+  .shortcut-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 `;

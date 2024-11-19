@@ -1,17 +1,4 @@
 import { HassEntity } from 'home-assistant-js-websocket';
-import { MEDIA_PLAYER_FEATURES } from '../constants/media';
-
-export const decodeSupportedFeatures = (supportedFeatures: number): string[] => {
-    const supportedActions = [];
-
-    for (const [feature, value] of Object.entries(MEDIA_PLAYER_FEATURES)) {
-        if (supportedFeatures & value) {
-            supportedActions.push(feature);
-        }
-    }
-
-    return supportedActions;
-}
 
 export const getEntityState = (entity: HassEntity, path: string): any => {
     return path.split('.').reduce((obj, key) => obj?.[key], entity);

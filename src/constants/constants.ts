@@ -2,6 +2,7 @@ export const CARD_VERSION = "v@LG_REMOTE_CONTROL_CARD_VERSION_PLACEHOLDER@";
 export const CARD_TAG_NAME = "lg-remote-control";
 export const EDITOR_CARD_TAG_NAME = "lg-remote-control-editor";
 
+// check for usage
 const avreceivers = {
     "dlna_dmr": {
         "friendlyName": "DLNA DMR Receivers",
@@ -38,8 +39,10 @@ const avreceivers = {
     },
 }
 
+// check for usage
 export const AvReceiverdevicemap = new Map(Object.entries(avreceivers));
 
+// check for usage
 export const DEFAULT_CONFIG = {
     dimensions: {
         border_width: "1px",

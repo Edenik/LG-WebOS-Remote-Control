@@ -1,6 +1,6 @@
-import { css } from 'lit';
+import { css, CSSResult } from 'lit';
 
-export const buttonBaseStyles = css`
+export const buttonBaseStyles: CSSResult = css`
   button {
     border: none;
     cursor: pointer;
@@ -44,7 +44,7 @@ export const buttonBaseStyles = css`
   }
 `;
 
-export const keypadStyles = css`
+export const keypadStyles: CSSResult = css`
   ${buttonBaseStyles}
 
   .grid-container-keypad {
@@ -67,7 +67,7 @@ export const keypadStyles = css`
   }
 `;
 
-export const directionPadStyles = css`
+export const directionPadStyles: CSSResult = css`
   ${buttonBaseStyles}
 
   .grid-container-cursor {
@@ -91,7 +91,7 @@ export const directionPadStyles = css`
   }
 `;
 
-export const mediaControlStyles = css`
+export const mediaControlStyles: CSSResult = css`
   ${buttonBaseStyles}
 
   .grid-container-media-control {
@@ -106,7 +106,7 @@ export const mediaControlStyles = css`
   }
 `;
 
-export const volumeControlStyles = css`
+export const volumeControlStyles: CSSResult = css`
   ${buttonBaseStyles}
 
   .grid-container-volume-channel-control {

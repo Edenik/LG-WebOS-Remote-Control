@@ -1,10 +1,10 @@
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { renderShape } from '../../common/mediaRenderer';
+import { renderShape } from '../../common/media-renderer';
+import { decodeSupportedFeatures } from '../../common/utils';
 import { debugViewStyles } from '../../styles/view-styles';
 import { LGRemoteControlConfig } from '../../types/config';
-import { decodeSupportedFeatures } from '../../utils/state-handlers';
 
 @customElement('debug-view')
 export class DebugView extends LitElement {
@@ -29,6 +29,28 @@ export class DebugView extends LitElement {
           ${this.entities.map(entity => this.renderDebugInfo(entity))}
         </div>
       </div>
+    `;
+  }
+
+  protected renderDebugInfo(entity: HassEntity) {
+    return html`
+      <ha-expansion-panel header="${entity.attributes.friendly_name ?? entity.entity_id}">
+        <div class="debug-info">
+          <div class="debug-section">
+            <div class="debug-content">
+              ${this.renderEntityBasics(entity)}
+            </div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-header">
+              <span class="debug-title">Attributes</span>
+            </div>
+            <div class="debug-content">
+              ${this.renderAttributes(entity)}
+            </div>
+          </div>
+        </div>
+      </ha-expansion-panel>
     `;
   }
 

@@ -1,17 +1,32 @@
 import { css, CSSResult } from 'lit';
+import { commonStyles } from './theme';
 
-export const themeStyles: CSSResult = css`
+export const globalStyles: CSSResult = css`
+  ${commonStyles}
+  
   :host {
     --remote-button-color: var(--secondary-background-color);
     --remote-text-color: var(--primary-text-color);
     --remote-color: var(--ha-card-background, var(--card-background-color, white));
-    --main-border-color: var(--primary-text-color);
-    --main-border-width: 1px;
     --remotewidth: 260px;
   }
-`;
 
-export const commonStyles: CSSResult = css`
+  .card {
+    display: flex;
+    justify-content: center;
+    padding: var(--ha-card-padding, 16px);
+  }
+
+  .page {
+    background-color: var(--remote-color);
+    height: 100%;
+    display: inline-block;
+    flex-direction: row;
+    border: var(--main-border-width) solid var(--main-border-color);
+    border-radius: calc(var(--remotewidth)/7.5);
+    padding: calc(var(--remotewidth)/37.5) calc(var(--remotewidth)/15.2) calc(var(--remotewidth)/11);
+  }
+
   .ripple {
     position: relative;
     overflow: hidden;
@@ -50,22 +65,5 @@ export const commonStyles: CSSResult = css`
     50% {
       opacity: 0;
     }
-  }
-`;
-
-export const layoutStyles: CSSResult = css`
-  .card {
-    display: flex;
-    justify-content: center;
-  }
-
-  .page {
-    background-color: var(--remote-color);
-    height: 100%;
-    display: inline-block;
-    flex-direction: row;
-    border: var(--main-border-width) solid var(--main-border-color);
-    border-radius: calc(var(--remotewidth)/7.5);
-    padding: calc(var(--remotewidth)/37.5) calc(var(--remotewidth)/15.2) calc(var(--remotewidth)/11);
   }
 `;
