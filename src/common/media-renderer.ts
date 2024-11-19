@@ -1,6 +1,6 @@
 import { html } from "lit";
+import { ButtonConfig } from "../types/buttons";
 import { iconMapping } from "./icons";
-import { ButtonConfig } from "./types";
 
 export const renderIcon = (iconName: string, color: string = "black") => {
     return Object.keys(iconMapping).includes(iconName)

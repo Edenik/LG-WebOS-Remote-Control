@@ -1,4 +1,4 @@
-import { MEDIA_PLAYER_FEATURES } from "./const";
+import { MEDIA_PLAYER_FEATURES } from "../constants/media";
 
 export function getMediaPlayerEntitiesByPlatform(hass, platformName) {
   let entities = Object.keys(hass.entities).filter(

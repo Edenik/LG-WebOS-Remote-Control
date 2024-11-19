@@ -2,13 +2,17 @@ import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { CARD_TAG_NAME, CARD_VERSION, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { amazonIcon, arcIcon, daznIcon, disneyIcon, lineOutIcon, opticIcon, tvHeadphonesIcon, tvOpticIcon } from "./common/icons";
-import { renderButtonMedia, renderShape } from './common/mediaRenderer';
-import { globalStyles } from './common/styles';
-import { ButtonAction, ButtonConfig, HomeAssistantFixed, LGRemoteControlConfig, SoundButton, SpotifyLocation, WindowWithCards } from "./common/types";
+import { renderButtonMedia, renderShape } from './common/media-renderer';
 import { decodeSupportedFeatures, getMediaPlayerEntitiesByPlatform, isRTL } from "./common/utils";
+import { CARD_VERSION, Components } from "./constants/constants";
 import "./editor";
+import { globalStyles } from './styles/styles';
+
+import './components/spotify/SpotifyDisplay';
+import { ButtonAction, ButtonConfig, SoundButton } from './types/buttons';
+import { LGRemoteControlConfig, SpotifyLocation } from './types/config';
+import { HomeAssistantFixed, WindowWithCards } from './types/home-assistant';
 
 const line1 = '  LG WebOS Remote Control Card  ';
 const logger = (title: string, log: any) => {
@@ -27,14 +31,14 @@ logger(`version: ${CARD_VERSION}`, "")
 const windowWithCards = window as unknown as WindowWithCards;
 windowWithCards.customCards = windowWithCards.customCards || [];
 windowWithCards.customCards.push({
-  type: CARD_TAG_NAME,
+  type: Components.RemoteControl,
   name: "LG WebOS Remote Control Card",
   preview: true,
   description: "Remote control card for LG WebOS TV devices"
 });
 
-@customElement(CARD_TAG_NAME)
-class LgRemoteControl extends LitElement {
+@customElement(Components.RemoteControl)
+export class LgRemoteControl extends LitElement {
   public hass!: HomeAssistant;
   public config!: LGRemoteControlConfig;
   private _show_inputs: boolean;
@@ -55,7 +59,7 @@ class LgRemoteControl extends LitElement {
 
   static getConfigElement() {
     // Create and return an editor element
-    return document.createElement(EDITOR_CARD_TAG_NAME);
+    return document.createElement(Components.RemoteControlEditor);
   }
 
   public static getStubConfig(hass: HomeAssistantFixed) {
@@ -65,7 +69,7 @@ class LgRemoteControl extends LitElement {
     }
     const entity = entities.length > 0 ? entities[0] : "media_player.lg_webos_smart_tv";
     return {
-      "type": `custom:${CARD_TAG_NAME}`,
+      "type": `custom:${Components.RemoteControl}`,
       "entity": entity
     }
   }
@@ -163,33 +167,9 @@ class LgRemoteControl extends LitElement {
   }
 
   _renderSpotifyRow() {
-    const spotifyTitle = this.getSpotifyTitle();
-    if (!spotifyTitle) return '';
-
-    const spotifyState: HassEntity = this.hass.states["media_player.spotify_eden_nahum"];
-    const albumArt = spotifyState.attributes.entity_picture;
-    const isPaused = spotifyState.state === "paused";
-    const _isRTL = isRTL(spotifyTitle);
-
     return html`
-      <div class="spotify-container">
-        <div class="spotify-scroll ${_isRTL ? 'rtl' : 'ltr'}">
-          <div class="spotify-text ${isPaused ? "paused" : ""} ${_isRTL ? 'rtl' : 'ltr'}">
-            <ha-icon 
-              class="spotify-icon" 
-              icon="mdi:spotify" 
-              style="color: #1DB954; margin: ${_isRTL ? '0 0 0 8px' : '0 8px 0 0'}"
-            ></ha-icon>
-            ${spotifyTitle}
-            <img 
-              src="${albumArt}" 
-              class="album-art"
-              style="margin: ${_isRTL ? '0 8px 0 0' : '0 0 0 8px'}"
-            />
-          </div>
-        </div>
-      </div>
-    `;
+      <spotify-display .state=${this.hass.states[this.config.spotify_entity]}></spotify-display>
+    `
   }
 
   // Main container renderer

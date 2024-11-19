@@ -1,16 +1,16 @@
-// Create and register the card editor
 import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
-
-import { AvReceiverdevicemap, EDITOR_CARD_TAG_NAME } from "./common/const";
 import { getMdiIconsList } from "./common/icons";
-import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/mediaRenderer";
-import { ButtonAction, ButtonConfig, ButtonType, HomeAssistantFixed, IconType, LGRemoteControlConfig, SelectedButton, SpotifyLocation } from "./common/types";
+import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "./common/media-renderer";
 import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "./common/utils";
-import { formatValidationErrors, validateButtonConfig, ValidationError } from "./common/validator";
+import { AvReceiverdevicemap, Components } from "./constants/constants";
+import { ButtonAction, ButtonConfig, ButtonType, IconType, SelectedButton } from "./types/buttons";
+import { LGRemoteControlConfig, SpotifyLocation } from "./types/config";
+import { HomeAssistantFixed } from "./types/home-assistant";
+import { formatValidationErrors, validateButtonConfig, ValidationError } from "./utils/validation";
 
-@customElement(EDITOR_CARD_TAG_NAME)
-class LgRemoteControlEditor extends LitElement {
+@customElement(Components.RemoteControlEditor)
+export class LgRemoteControlEditor extends LitElement {
   private _config: LGRemoteControlConfig;
   private hass: HomeAssistantFixed;
   private _selectedItem: SelectedButton | null = null;
