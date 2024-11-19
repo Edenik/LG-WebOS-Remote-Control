@@ -8,7 +8,10 @@ export enum Components {
     EditorSpotifyConfig = "editor-spotify-config",
     EditorAppearanceConfig = "editor-appearance-config",
     EditorColorsConfig = "editor-colors-config",
-    EditorDimenstionsConfig = "editor-dimensions-config"
+    EditorDimenstionsConfig = "editor-dimensions-config",
+    EditorAdvancedConfig = "editor-advanced-config",
+    EditorDebugConfig = "editor-debug-config",
+    EditorAvRecieverConfig = "editor-av-receiver-config"
 }
 
 // check for usage

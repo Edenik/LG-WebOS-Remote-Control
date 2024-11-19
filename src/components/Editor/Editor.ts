@@ -2,14 +2,15 @@ import { css, html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 import { getMdiIconsList } from "../../common/icons";
 import { renderButtonMedia, renderIcon, renderImage, renderSvg } from "../../common/media-renderer";
-import { areObjectsEqual, capitalizeFirstLetter, getMediaPlayerEntitiesByPlatform, pluralToSingular } from "../../common/utils";
-import { AvReceiverdevicemap, Components } from "../../constants/constants";
+import { areObjectsEqual, capitalizeFirstLetter, pluralToSingular } from "../../common/utils";
+import { Components } from "../../constants/constants";
 import { ButtonAction, ButtonConfig, ButtonType, IconType, SelectedButton } from "../../types/buttons";
 import { LGRemoteControlConfig, SpotifyLocation } from "../../types/config";
 import { HomeAssistantFixed } from "../../types/home-assistant";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "../../utils/validation";
 
 // import components
+import "./components/AdvancedConfig/AdvancedConfig";
 import "./components/AppearanceConfig/AppearanceConfig";
 import "./components/BasicConfig/BasicConfig";
 import "./components/BasicConfig/SpotifyConfig";
@@ -95,10 +96,6 @@ export class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  _erase_av_receiver() {
-    this._config.av_receiver_family = '';
-    this.requestUpdate(); // Aggiunta per forzare il render
-  }
 
   debugLog(log: Record<string, any>) {
     if (this.isDebuggerEnabled()) {
@@ -1163,68 +1160,11 @@ export class LgRemoteControlEditor extends LitElement {
 
   private renderAdvancedConfig() {
     return html`
-        <ha-expansion-panel header="Advanced Configuration">
-            <div class="section-content">
-                <div class="field-group">
-                    <label class="field-label">Display Color Buttons</label>
-                    <select name="color_buttons" class="select-item"
-                            .value=${String(this._config.color_buttons ?? false)}
-                            @change=${this.configChangedBool}>
-                        <option value="true" ?selected=${Boolean(this._config.color_buttons)}>On</option>
-                        <option value="false" ?selected=${!Boolean(this._config.color_buttons)}>Off</option>
-                    </select>
-                </div>
-
-                <div class="field-group">
-                    <label class="field-label">Debug Mode</label>
-                    <select name="debug" class="select-item"
-                            .value=${String(this._config.debug ?? false)}
-                            @change=${this.configChangedBool}>
-                        <option value="true" ?selected=${Boolean(this._config.debug)}>On</option>
-                        <option value="false" ?selected=${!Boolean(this._config.debug)}>Off</option>
-                    </select>
-                </div>
-
-                <div class="field-group">
-                    <label class="field-label">AV Receiver</label>
-                    <div class="device-config">
-                        <select name="av_receiver_family" class="select-item device-select"
-                                .value=${this._config.av_receiver_family || ''}
-                                @focusout=${this.configChanged}
-                                @change=${this.configChanged}>
-                            ${!this._config.av_receiver_family ? html`<option value="" selected> - - - - </option>` : ''}
-                            ${[...AvReceiverdevicemap.entries()].map(([family, data]) => html`
-                                <option value="${family}" ?selected=${family === this._config.av_receiver_family}>
-                                    ${data.friendlyName}
-                                </option>
-                            `)}
-                        </select>
-                        ${this._config.av_receiver_family ? html`
-                            <button class="clear-button" @click=${this._erase_av_receiver}>
-                                <ha-icon icon="mdi:trash-can-outline"></ha-icon>
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-
-                ${this._config.av_receiver_family ? html`
-                    <div class="field-group">
-                        <label class="field-label">AV Receiver Entity</label>
-                        <select name="ampli_entity" class="select-item"
-                                .value=${this._config.ampli_entity || ''}
-                                @focusout=${this.configChanged}
-                                @change=${this.configChanged}>
-                            ${!this._config.ampli_entity ? html`<option value="" selected> - - - - </option>` : ''}
-                            ${getMediaPlayerEntitiesByPlatform(this.hass, this._config.av_receiver_family).map(eid => html`
-                                <option value="${eid}" ?selected=${eid === this._config.ampli_entity}>
-                                    ${this.hass.states[eid].attributes.friendly_name || eid}
-                                </option>
-                            `)}
-                        </select>
-                    </div>
-                ` : ''}
-            </div>
-        </ha-expansion-panel>
+      <editor-advanced-config
+        .hass=${this.hass}
+        .config=${this._config}
+        @config-changed=${this._configChanged}
+      ></editor-advanced-config>
     `;
   }
 
@@ -1335,7 +1275,6 @@ export class LgRemoteControlEditor extends LitElement {
 
   static get styles() {
     return css`
-
         .parameters-section {
           margin-top: 16px;
           padding: 16px;

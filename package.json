@@ -1,6 +1,6 @@
 {
     "name": "lg-remote-card",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "LG Remote card",
     "keywords": [
         "home-assistant",
@@ -10,7 +10,7 @@
         "lovelace",
         "custom-cards"
     ],
-    "module": "lg-remote-card.js",
+    "module": "index.js",
     "repository": "git@github.com:madmicio/LG-WebOS-Remote-Control.git",
     "author": "Maurizio <madmicio@tiscali.it>",
     "license": "MIT",
