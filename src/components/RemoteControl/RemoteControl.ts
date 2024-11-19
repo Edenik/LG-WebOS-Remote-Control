@@ -14,6 +14,7 @@ import { HomeAssistantFixed, WindowWithCards } from '../../types/home-assistant'
 // import components
 import "../Editor/Editor";
 import '../Spotify/SpotifyDisplay';
+import { getSpotifyEntity, getSpotifyTitle } from '../Spotify/helpers';
 
 const line1 = '  LG WebOS Remote Control Card  ';
 const logger = (title: string, log: any) => {
@@ -968,22 +969,11 @@ export class LgRemoteControl extends LitElement {
     });
   }
 
-  getSpotifyEntity(): HassEntity | undefined {
-    if (!this.config.spotify_entity) { return; }
-    return this.hass.states[this.config.spotify_entity];
-  }
-
-  getSpotifyTitle(): string {
-    const spotifyEntity = this.getSpotifyEntity();
-    if (!spotifyEntity || !spotifyEntity.attributes?.media_title || !spotifyEntity.attributes?.media_artist) { return ""; }
-    return `${spotifyEntity.attributes?.media_artist} - ${spotifyEntity.attributes?.media_title}`;
-  }
-
   updated(changedProperties) {
     if (changedProperties.has("hass")) {
       const tvEntity: HassEntity = this.hass.states[this.config.entity];
-      const spotifyEntity = this.getSpotifyEntity();
-      const spotifyTitle = this.getSpotifyTitle();
+      const spotifyEntity = getSpotifyEntity(this.config, this.hass);
+      const spotifyTitle = getSpotifyTitle(this.config, this.hass);
       const newSoundOutput = tvEntity.attributes.sound_output;
 
       if (newSoundOutput !== this.soundOutput ||

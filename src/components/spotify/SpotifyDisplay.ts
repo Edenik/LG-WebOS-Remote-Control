@@ -3,21 +3,14 @@ import { customElement, property } from 'lit/decorators.js';
 import { Components } from '../../constants/constants';
 import { SpotifyState } from '../../types/spotify';
 import { isRTL } from '../../utils/text-helpers';
+import { getSpotifyTitleFromEntity } from './helpers';
 
 @customElement(Components.SpotifyDisplay)
 export class SpotifyDisplay extends LitElement {
   @property({ type: Object }) state!: SpotifyState;
 
-  private getSpotifyTitle(): string {
-    if (!this.state || !this.state?.attributes?.media_title || !this.state?.attributes?.media_artist) {
-      return '';
-    }
-    return `${this.state.attributes.media_artist} - ${this.state.attributes.media_title}`;
-  }
-
-
   render() {
-    const title: string = this.getSpotifyTitle();
+    const title: string = getSpotifyTitleFromEntity(this.state);
     if (!title) {
       return html``;
     }
