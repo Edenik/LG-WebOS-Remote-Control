@@ -10,6 +10,7 @@ import { HomeAssistantFixed } from "../../types/home-assistant";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "../../utils/validation";
 
 // import components
+import "./components/AppearanceConfig/AppearanceConfig";
 import "./components/BasicConfig/BasicConfig";
 import "./components/BasicConfig/SpotifyConfig";
 
@@ -94,81 +95,9 @@ export class LgRemoteControlEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  colorsConfigChanged(ev: Event) {
-    // Controlla se l'evento è scatenato da un'icona
-    const target = ev.target as HTMLInputElement
-    if (target.tagName === "HA-ICON") {
-      const inputName = target.getAttribute("data-input-name");
-      if (inputName) {
-        const inputElement = this.shadowRoot.querySelector(`[name="${inputName}"]`) as any;
-        if (inputElement) {
-          // Imposta l'input su una stringa vuota
-          inputElement.value = "";
-
-          // Aggiorna la configurazione
-          const _config = Object.assign({}, this._config);
-          _config["colors"] = { ...(_config["colors"] ?? {}) };
-          _config["colors"][inputName] = "";
-          this._config = _config;
-
-          // Invia l'evento "config-changed"
-          const event = new CustomEvent("config-changed", {
-            detail: { config: _config },
-            bubbles: true,
-            composed: true,
-          });
-
-          this.debugLog({ hass: this.hass, event, _config, fn: "colorsConfigChanged" })
-          this.dispatchEvent(event);
-        }
-      }
-    } else {
-      // Se l'evento non proviene da un'icona, gestisci la modifica dell'input come al solito
-      const _config = Object.assign({}, this._config);
-      _config["colors"] = { ...(_config["colors"] ?? {}) };
-      _config["colors"][target.name.toString()] = target.value;
-      this._config = _config;
-
-      // Invia l'evento "config-changed"
-      const event = new CustomEvent("config-changed", {
-        detail: { config: _config },
-        bubbles: true,
-        composed: true,
-      });
-
-      this.debugLog({ hass: this.hass, event, _config, fn: "colorsConfigChanged" })
-      this.dispatchEvent(event);
-    }
-  }
-
   _erase_av_receiver() {
     this._config.av_receiver_family = '';
     this.requestUpdate(); // Aggiunta per forzare il render
-  }
-
-  dimensionsConfigChanged(ev: Event) {
-    // Se l'evento non proviene da un'icona, gestisci la modifica dell'input come al solito
-    const _config = Object.assign({}, this._config);
-    _config["dimensions"] = { ...(_config["dimensions"] ?? {}) };
-    const target = ev.target as HTMLInputElement
-
-    if (target.name === 'border_width') {
-      _config["dimensions"][target.name] = target.value + 'px';
-    } else {
-      _config["dimensions"][target.name] = target.value;
-    }
-
-    this._config = _config;
-
-    // Invia l'evento "config-changed"
-    const event = new CustomEvent("config-changed", {
-      detail: { config: _config },
-      bubbles: true,
-      composed: true,
-    });
-
-    this.debugLog({ hass: this.hass, event, _config, fn: "dimensionsConfigChanged" })
-    this.dispatchEvent(event);
   }
 
   debugLog(log: Record<string, any>) {
@@ -1223,84 +1152,12 @@ export class LgRemoteControlEditor extends LitElement {
   }
 
   private renderAppearanceConfig() {
-    const colors = this._config.colors || {};
     return html`
-        <ha-expansion-panel header="Appearance Configuration">
-            <div class="section-content">
-                <div class="field-group">
-                    <label class="field-label">Colors</label>
-                    <div class="color-config">
-                        <div class="color-item">
-                            <span class="color-label">Buttons Color</span>
-                            <div class="color-input-group">
-                                <input type="color" class="color-input" name="buttons"
-                                       .value="${colors.buttons || ''}"
-                                       @input=${this.colorsConfigChanged}>
-                                <ha-icon data-input-name="buttons" icon="mdi:trash-can-outline"
-                                        @click=${this.colorsConfigChanged}></ha-icon>
-                            </div>
-                        </div>
-
-                        <div class="color-item">
-                            <span class="color-label">Text Color</span>
-                            <div class="color-input-group">
-                                <input type="color" class="color-input" name="text"
-                                       .value="${colors.text || ''}"
-                                       @input=${this.colorsConfigChanged}>
-                                <ha-icon data-input-name="text" icon="mdi:trash-can-outline"
-                                        @click=${this.colorsConfigChanged}></ha-icon>
-                            </div>
-                        </div>
-
-                        <div class="color-item">
-                            <span class="color-label">Background Color</span>
-                            <div class="color-input-group">
-                                <input type="color" class="color-input" name="background"
-                                       .value="${colors.background || ''}"
-                                       @input=${this.colorsConfigChanged}>
-                                <ha-icon data-input-name="background" icon="mdi:trash-can-outline"
-                                        @click=${this.colorsConfigChanged}></ha-icon>
-                            </div>
-                        </div>
-
-                        <div class="color-item">
-                            <span class="color-label">Border Color</span>
-                            <div class="color-input-group">
-                                <input type="color" class="color-input" name="border"
-                                       .value="${colors.border || ''}"
-                                       @input=${this.colorsConfigChanged}>
-                                <ha-icon data-input-name="border" icon="mdi:trash-can-outline"
-                                        @click=${this.colorsConfigChanged}></ha-icon>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dimensions-group">
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>Card Scale</span>
-                            <span class="slider-value">${this._config.dimensions?.scale || 1}</span>
-                        </div>
-                        <input type="range" min="0.5" max="1.5" step="0.01"
-                               .value="${this._config.dimensions?.scale || 1}"
-                               name="scale"
-                               @input=${this.dimensionsConfigChanged}>
-                    </div>
-
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>Border Width</span>
-                            <span class="slider-value">${parseFloat(this._config.dimensions?.border_width || "1")}px</span>
-                        </div>
-                        <input type="range" min="1" max="5" step="1"
-                               .value="${parseFloat(this._config.dimensions?.border_width || "1")}"
-                               name="border_width"
-                               @input=${this.dimensionsConfigChanged}>
-                    </div>
-                </div>
-            </div>
-        </ha-expansion-panel>
+      <editor-appearance-config
+        .hass=${this.hass}
+        .config=${this._config}
+        @config-changed=${this._configChanged}
+      ></editor-appearance-config>
     `;
   }
 

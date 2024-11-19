@@ -5,7 +5,10 @@ export enum Components {
     RemoteControlEditor = "lg-remote-control-editor",
     SpotifyDisplay = "spotify-display",
     EditorBasicConfig = "editor-basic-config",
-    EditorSpotifyConfig = "editor-spotify-config"
+    EditorSpotifyConfig = "editor-spotify-config",
+    EditorAppearanceConfig = "editor-appearance-config",
+    EditorColorsConfig = "editor-colors-config",
+    EditorDimenstionsConfig = "editor-dimensions-config"
 }
 
 // check for usage
