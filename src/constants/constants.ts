@@ -3,7 +3,9 @@ export const CARD_VERSION = "v@LG_REMOTE_CONTROL_CARD_VERSION_PLACEHOLDER@";
 export enum Components {
     RemoteControl = "lg-remote-control",
     RemoteControlEditor = "lg-remote-control-editor",
-    SpotifyDisplay = "spotify-display"
+    SpotifyDisplay = "spotify-display",
+    EditorBasicConfig = "editor-basic-config",
+    EditorSpotifyConfig = "editor-spotify-config"
 }
 
 // check for usage

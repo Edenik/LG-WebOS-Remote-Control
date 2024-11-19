@@ -9,6 +9,10 @@ import { LGRemoteControlConfig, SpotifyLocation } from "../../types/config";
 import { HomeAssistantFixed } from "../../types/home-assistant";
 import { formatValidationErrors, validateButtonConfig, ValidationError } from "../../utils/validation";
 
+// import components
+import "./components/BasicConfig/BasicConfig";
+import "./components/BasicConfig/SpotifyConfig";
+
 @customElement(Components.RemoteControlEditor)
 export class LgRemoteControlEditor extends LitElement {
   private _config: LGRemoteControlConfig;
@@ -1188,128 +1192,33 @@ export class LgRemoteControlEditor extends LitElement {
     `;
   }
 
-  private _eraseSpotifyEntity() {
-    this._config.spotify_entity = '';
-    const event = new CustomEvent("config-changed", {
+  private _configChanged(ev: CustomEvent) {
+    ev.stopPropagation();
+    this._config = ev.detail.config;
+    this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: this._config },
       bubbles: true,
       composed: true,
-    });
-    this.dispatchEvent(event);
-    this.requestUpdate();
-  }
-
-  private renderSpotifyConfig() {
-    return html`
-        <div class="field-group">
-            <label class="field-label">Spotify Media Player Entity</label>
-            <div class="device-config">
-                <select 
-                    name="spotify_entity" 
-                    class="select-item device-select" 
-                    .value="${this._config.spotify_entity || ''}"
-                    @focusout=${this.configChanged}
-                    @change=${this.configChanged}
-                >
-                    ${!this._config.spotify_entity ? html`<option value="" selected> Select Spotify Entity </option>` : ''}
-                    ${Object.keys(this.hass.states)
-        .filter(entityId => entityId.startsWith('media_player.'))
-        .sort()
-        .map(entityId => html`
-                            <option 
-                                value="${entityId}" 
-                                ?selected=${entityId === this._config.spotify_entity}
-                            >
-                                ${this.hass.states[entityId].attributes.friendly_name || entityId}
-                            </option>
-                        `)}
-                </select>
-                ${this._config.spotify_entity ? html`
-                    <button class="clear-button" @click=${this._eraseSpotifyEntity}>
-                        <ha-icon icon="mdi:trash-can-outline"></ha-icon>
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-
-        ${this._config.spotify_entity ? html`
-            <div class="field-group">
-                <label class="field-label">Spotify Location</label>
-                <select 
-                    name="spotify_location" 
-                    class="select-item"
-                    .value="${this._config.spotify_location || SpotifyLocation.TOP}"
-                    @focusout=${this.configChanged}
-                    @change=${this.configChanged}
-                >
-                    <option 
-                        value="${SpotifyLocation.TOP}"
-                        ?selected=${this._config.spotify_location === SpotifyLocation.TOP}
-                    >
-                        Top
-                    </option>
-                    <option 
-                        value="${SpotifyLocation.BOTTOM}"
-                        ?selected=${this._config.spotify_location === SpotifyLocation.BOTTOM}
-                    >
-                        Bottom
-                    </option>
-                    <option 
-                        value="${SpotifyLocation.ABOVE_BUTTONS}"
-                        ?selected=${this._config.spotify_location === SpotifyLocation.ABOVE_BUTTONS}
-                    >
-                        Above Buttons
-                    </option>
-                    <option 
-                        value="${SpotifyLocation.UNDER_BUTTONS}"
-                        ?selected=${this._config.spotify_location === SpotifyLocation.UNDER_BUTTONS}
-                    >
-                        Under Buttons
-                    </option>
-                </select>
-            </div>
-        ` : ''}
-    `;
+    }));
   }
 
   private renderBasicConfig() {
     return html`
-        <ha-expansion-panel header="Basic Configuration">
-            <div class="section-content">
-                <div class="field-group">
-                    <label class="field-label">LG Media Player Entity</label>
-                    <div class="device-config">
-                        <select name="entity" class="select-item" .value="${this._config.entity}"
-                                @focusout=${this.configChanged}
-                                @change=${this.configChanged}>
-                            ${this._config.entity ? '' : html`<option value="" selected> - - - - </option>`}
-                            ${getMediaPlayerEntitiesByPlatform(this.hass, 'webostv').map((eid) => html`
-                                <option value="${eid}" ?selected=${eid === this._config.entity}>
-                                    ${this.hass.states[eid].attributes.friendly_name || eid}
-                                </option>
-                            `)}
-                        </select>
-                    </div>
-                </div>
-
-                <div class="field-group">
-                    <label class="field-label">MAC Address</label>
-                    <input type="text" class="input-field" name="mac"
-                           .value="${this._config.mac || '00:11:22:33:44:55'}"
-                           @focusout=${this.configChanged}
-                           @change=${this.configChanged}>
-                </div>
-
-                <div class="field-group">
-                    <label class="field-label">Remote Control Name (optional)</label>
-                    <input type="text" class="input-field" name="name"
-                           .value="${this._config.name || ''}"
-                           @input=${this.configChanged}>
-                </div>
-
-                ${this.renderSpotifyConfig()}
-            </div>
-        </ha-expansion-panel>
+      <ha-expansion-panel header="Basic Configuration">
+        <div class="section-content">
+          <editor-basic-config
+            .hass=${this.hass}
+            .config=${this._config}
+            @config-changed=${this._configChanged}
+          ></editor-basic-config>
+          
+          <editor-spotify-config
+            .hass=${this.hass}
+            .config=${this._config}
+            @config-changed=${this._configChanged}
+          ></editor-spotify-config>
+        </div>
+      </ha-expansion-panel>
     `;
   }
 
