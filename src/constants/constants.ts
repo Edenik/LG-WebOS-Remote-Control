@@ -11,7 +11,9 @@ export enum Components {
     EditorDimenstionsConfig = "editor-dimensions-config",
     EditorAdvancedConfig = "editor-advanced-config",
     EditorDebugConfig = "editor-debug-config",
-    EditorAvRecieverConfig = "editor-av-receiver-config"
+    EditorAvRecieverConfig = "editor-av-receiver-config",
+    EditorButtonsConfig = "editor-buttons-config",
+    EditorButtonList = "editor-button-list"
 }
 
 // check for usage
